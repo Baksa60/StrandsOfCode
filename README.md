@@ -136,8 +136,8 @@ MIT License - см. файл LICENSE
 
 ## 📞 Контакты
 
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
+- GitHub: [@Baksa60](https://github.com/yourusername)
+- Email: baksa60@yandex.ru
 
 ---
 
