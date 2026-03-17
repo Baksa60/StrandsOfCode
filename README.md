@@ -1,0 +1,136 @@
+# 🔧 py2txt_tool
+
+Современный конвертер файлов кода (Python, JavaScript, TypeScript) в текстовый формат с красивым интерфейсом и расширенными возможностями.
+
+## ✨ Особенности
+
+- 🎁 **Современный интерфейс** - тёмная/светлая тема, чистый дизайн
+- 🐍 **Поддержка Python** - .py файлы с определением проектов
+- 🟨 **Поддержка JavaScript** - .js, .jsx файлы с определением проектов
+- 🔷 **Поддержка TypeScript** - .ts, .tsx файлы с определением проектов
+- 📁 **Гибкие источники** - файлы, папки, рекурсивный поиск, проекты
+- 📊 **Статистика** - информация о файлах, размерах, прогресс
+- ⏰ **История** - недавние файлы для быстрого доступа
+- 📝 **Метаданные** - заголовки, нумерация строк, информация о файлах
+
+## 🚀 Быстрый старт
+
+### Установка
+
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/yourusername/py2txt_tool.git
+cd py2txt_tool
+
+# Установите зависимости
+pip install -r requirements.txt
+```
+
+### Запуск
+
+```bash
+python main.py
+```
+
+## 📖 Использование
+
+1. **Выберите источник файлов:**
+   - 📄 Один файл
+   - 📁 Несколько файлов  
+   - 📂 Папка (без вложенных)
+   - 📂 Папка (рекурсивно)
+   - 🚀 Программный проект (Python/JS/TS)
+
+2. **Настройте вывод:**
+   - 📄 Отдельные файлы или объединенный файл
+   - 📝 Добавление заголовков и метаданных
+
+3. **Запустите конвертацию** и выберите папку для сохранения
+
+## 🏗️ Архитектура
+
+```
+py2txt_tool/
+├─ main.py                     # Точка входа
+├─ ui/
+│  ├─ main_window.py          # Главное окно
+│  └─ styles.py              # Стили тем
+├─ controllers/
+│  └─ convert_controller.py   # Контроллер конвертации
+├─ services/
+│  ├─ file_collector.py       # Сбор файлов
+│  └─ converter_service.py    # Конвертация в TXT
+├─ models/
+│  ├─ conversion_options.py   # Опции конвертации
+│  └─ conversion_result.py    # Результат конвертации
+├─ config.py                  # Конфигурация
+└── requirements.txt           # Зависимости
+```
+
+## 🛠️ Технологии
+
+- **PyQt6** - современный GUI фреймворк
+- **Python 3.8+** - основной язык разработки
+- **MVC архитектура** - чистая структура кода
+
+## 📋 Поддерживаемые форматы
+
+### Входные форматы
+- 🐍 Python (.py)
+- 🟨 JavaScript (.js, .jsx)
+- 🔷 TypeScript (.ts, .tsx)
+
+### Выходные форматы
+- 📄 Текстовые файлы (.txt)
+- 📄 Объединенный файл с деревом проекта
+
+## 🎯 Определение проектов
+
+Приложение автоматически определяет тип проекта по маркерам:
+
+**Python проекты:**
+- `pyproject.toml`
+- `requirements.txt`
+- `setup.py`
+- `Pipfile`
+
+**JavaScript/TypeScript проекты:**
+- `package.json`
+- `package-lock.json`
+- `yarn.lock`
+- `tsconfig.json`
+- `webpack.config.js`
+- `vite.config.js`
+- `rollup.config.js`
+
+## 🔧 Игнорируемые файлы
+
+- Тестовые файлы (`*_test.py`, `*.test.js`, `*.spec.ts`)
+- Минифицированные файлы (`*.min.js`)
+- TypeScript определения (`*.d.ts`)
+- Служебные папки (`__pycache__`, `node_modules`, `.git`)
+
+## 📜 Лицензия
+
+MIT License - см. файл LICENSE
+
+## 🤝 Вклад в проект
+
+1. Fork проекта
+2. Создайте feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit изменения (`git commit -m 'Add some AmazingFeature'`)
+4. Push в branch (`git push origin feature/AmazingFeature`)
+5. Откройте Pull Request
+
+## 📊 План развития
+
+См. [ROADMAP.md](ROADMAP.md) для подробного плана развития проекта.
+
+## 📞 Контакты
+
+- GitHub: [@yourusername](https://github.com/yourusername)
+- Email: your.email@example.com
+
+---
+
+*Разработано с ❤️ для удобной работы с кодом*
