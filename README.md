@@ -136,7 +136,7 @@ MIT License - см. файл LICENSE
 
 ## 📞 Контакты
 
-- GitHub: [@Baksa60](https://github.com/yourusername)
+- GitHub: [@Baksa60](https://github.com/Baksa60)
 - Email: baksa60@yandex.ru
 
 ---
