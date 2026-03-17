@@ -12,9 +12,9 @@ def main():
     app = QApplication(sys.argv)
     
     # Установка свойств приложения
-    app.setApplicationName("py2txt_tool")
-    app.setApplicationVersion("1.0.0")
-    app.setOrganizationName("py2txt_tool")
+    app.setApplicationName("StrandsOfCode")
+    app.setApplicationVersion("1.1.0")
+    app.setOrganizationName("StrandsOfCode")
     
     window = MainWindow()
     window.show()

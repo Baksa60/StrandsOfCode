@@ -39,7 +39,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
         
     def init_ui(self):
-        self.setWindowTitle("🔧 py2txt_tool - Конвертер кода в TXT")
+        self.setWindowTitle("🧬 StrandsOfCode - Конвертер кода в TXT")
         self.setGeometry(100, 100, 900, 700)
         self.setMinimumSize(800, 600)
         
@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
         
         # Заголовок приложения с переключателем тем
         header_layout = QHBoxLayout()
-        title_label = QLabel("🔧 py2txt_tool")
+        title_label = QLabel("🧬 StrandsOfCode")
         title_label.setObjectName("titleLabel")
         title_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
@@ -266,9 +266,9 @@ class MainWindow(QMainWindow):
     def show_about(self):
         """Показывает окно 'О программе'"""
         about_text = """
-        <h2>🔧 py2txt_tool</h2>
+        <h2>🧬 StrandsOfCode</h2>
         <p><b>Версия:</b> 1.1.0</p>
-        <p><b>Конвертер файлов кода в текстовый формат</b></p>
+        <p><b>Конвертер кода в текстовый формат</b></p>
         <br>
         <p><b>Поддерживаемые языки:</b></p>
         <ul>
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
             <li>📝 Метаданные и нумерация строк</li>
         </ul>
         <br>
-        <p><i>Разработано с ❤️ для удобной работы с кодом</i></p>
+        <p><i>Прядём код в удобный текстовый формат с ❤️</i></p>
         """
         
         QMessageBox.about(self, "О программе", about_text)
