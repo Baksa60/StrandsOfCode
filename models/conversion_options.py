@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -22,13 +22,16 @@ class ConversionOptions:
     # расширения файлов для обработки
     extensions: List[str]
 
-    # режим вывода
+    # режим вывода: combined | separate
     output_mode: str
-    # separate | combined
 
-    # формат вывода
-    output_format: str = "txt"
-    # txt | markdown | html
+    # формат вывода: txt | markdown | html | python | javascript | typescript
+    output_format: str
 
-    # добавлять заголовки файлов при объединении
+    # добавлять заголовки и метаданные
     add_headers: bool = True
+
+    add_line_numbers: bool = True
+
+    # имя файла для сохранения
+    filename: Optional[str] = None

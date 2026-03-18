@@ -9,6 +9,29 @@ class FileCollector:
     Отвечает за сбор файлов из разных источников.
     """
 
+    def _is_in_ignored_dir(self, path: Path) -> bool:
+        return any(part in IGNORED_DIRS for part in path.parts)
+
+    def _has_allowed_extension(self, path: Path, extensions: List[str]) -> bool:
+        return path.is_file() and path.suffix in extensions
+
+    def _should_include_file(self, path: Path, extensions: List[str]) -> bool:
+        if not path.exists():
+            return False
+        if self._is_in_ignored_dir(path):
+            return False
+        if not self._has_allowed_extension(path, extensions):
+            return False
+        if self.match_ignore_patterns(path):
+            return False
+        return True
+
+    def _iter_folder(self, folder: Path, recursive: bool):
+        if recursive:
+            yield from folder.rglob("*")
+        else:
+            yield from folder.iterdir()
+
     def collect_from_file(self, path: Path) -> List[Path]:
         return [path]
 
@@ -17,14 +40,14 @@ class FileCollector:
 
     def collect_from_folder(self, folder: Path, extensions: List[str]) -> List[Path]:
         return [
-            f for f in folder.iterdir()
-            if f.is_file() and f.suffix in extensions
+            p for p in self._iter_folder(folder, recursive=False)
+            if self._should_include_file(p, extensions)
         ]
 
     def collect_from_folder_recursive(self, folder: Path, extensions: List[str]) -> List[Path]:
         return [
-            f for f in folder.rglob("*")
-            if f.is_file() and f.suffix in extensions
+            p for p in self._iter_folder(folder, recursive=True)
+            if self._should_include_file(p, extensions)
         ]
 
     def detect_python_project(self, folder: Path) -> bool:
@@ -55,24 +78,10 @@ class FileCollector:
         игнорируя служебные каталоги.
         """
 
-        files = []
-
-        for path in folder.rglob("*"):
-            if not path.exists():
-                continue
-
-            # проверяем что путь не находится внутри игнорируемых папок
-            if any(part in IGNORED_DIRS for part in path.parts):
-                continue
-
-            if path.is_file() and path.suffix in extensions:
-
-                if self.match_ignore_patterns(path):
-                    continue
-
-                files.append(path)
-
-        return files
+        return [
+            p for p in self._iter_folder(folder, recursive=True)
+            if self._should_include_file(p, extensions)
+        ]
 
     def collect_js_project(self, folder: Path, extensions: List[str]) -> List[Path]:
         """
@@ -80,24 +89,10 @@ class FileCollector:
         игнорируя служебные каталоги.
         """
 
-        files = []
-
-        for path in folder.rglob("*"):
-            if not path.exists():
-                continue
-
-            # проверяем что путь не находится внутри игнорируемых папок
-            if any(part in IGNORED_DIRS for part in path.parts):
-                continue
-
-            if path.is_file() and path.suffix in extensions:
-
-                if self.match_ignore_patterns(path):
-                    continue
-
-                files.append(path)
-
-        return files
+        return [
+            p for p in self._iter_folder(folder, recursive=True)
+            if self._should_include_file(p, extensions)
+        ]
 
     def match_ignore_patterns(self, path: Path) -> bool:
         """

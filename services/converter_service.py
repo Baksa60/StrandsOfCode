@@ -1,23 +1,34 @@
 from pathlib import Path
 from typing import List
 from models.conversion_result import ConversionResult
+from utils.file_utils import read_file_safe, count_lines
+from utils.cancellation import check_cancelled
 
 class ConverterService:
     """
     Отвечает за преобразование файлов.
     """
 
-    def convert_to_separate_txt(self, files: List[Path], output_folder: Path, add_headers: bool = True) -> ConversionResult:
+    def convert_to_separate_txt(
+        self,
+        files: List[Path],
+        output_folder: Path,
+        add_headers: bool = True,
+        add_line_numbers: bool = True,
+    ) -> ConversionResult:
 
         result = ConversionResult(files_found=len(files))
 
+        output_folder.mkdir(parents=True, exist_ok=True)
+
         for file in files:
+
+            check_cancelled()
 
             try:
                 txt_path = output_folder / (file.stem + ".txt")
 
-                with open(file, "r", encoding="utf-8") as f:
-                    content = f.read()
+                content, _ = read_file_safe(file)
 
                 with open(txt_path, "w", encoding="utf-8") as f:
                     if add_headers:
@@ -28,9 +39,10 @@ class ConverterService:
                         metadata = self.get_file_metadata(file)
                         f.write(metadata)
                     
-                    # Добавляем контент с нумерацией строк
-                    content_with_numbers = self.add_line_numbers(content)
-                    f.write(content_with_numbers)
+                    if add_line_numbers:
+                        content = self.add_line_numbers(content)
+
+                    f.write(content)
                     
                     if not content.endswith("\n"):
                         f.write("\n")
@@ -49,6 +61,7 @@ class ConverterService:
         files: List[Path],
         output_file: Path,
         add_headers: bool = True,
+        add_line_numbers: bool = True,
         base_folder: Path | None = None
     ) -> ConversionResult:
 
@@ -68,6 +81,8 @@ class ConverterService:
 
                 for file in files_sorted:
 
+                    check_cancelled()
+
                     try:
 
                         if add_headers:
@@ -84,15 +99,15 @@ class ConverterService:
                             metadata = self.get_file_metadata(file)
                             out.write(metadata)
 
-                        with open(file, "r", encoding="utf-8") as f:
-                            content = f.read()
+                        content, _ = read_file_safe(file)
 
+                        if add_line_numbers:
                             content = self.add_line_numbers(content)
 
-                            out.write(content)
+                        out.write(content)
 
-                            if not content.endswith("\n"):
-                                out.write("\n")
+                        if not content.endswith("\n"):
+                            out.write("\n")
 
                         result.files_converted += 1
 
@@ -193,8 +208,7 @@ class ConverterService:
         """
         try:
             size_kb = file.stat().st_size / 1024
-            with open(file, "r", encoding="utf-8") as f:
-                lines = sum(1 for _ in f)
+            lines = count_lines(file)
         except Exception:
             size_kb = 0
             lines = 0

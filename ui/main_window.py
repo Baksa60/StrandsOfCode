@@ -2,15 +2,16 @@ import sys
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QComboBox, QCheckBox, QGroupBox,
-    QRadioButton, QButtonGroup, QProgressBar, QTextEdit,
-    QFileDialog, QMessageBox, QSplitter, QFrame, QScrollArea, QGridLayout
+    QGroupBox, QLabel, QPushButton, QComboBox, QRadioButton, QButtonGroup,
+    QTextEdit, QProgressBar, QFileDialog, QMessageBox, QCheckBox,
+    QSplitter, QGridLayout, QLineEdit
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QThread
 from PyQt6.QtGui import QIcon, QFont, QPalette
 from controllers.convert_controller import ConvertController
 from models.conversion_options import ConversionOptions
 from ui.styles import apply_theme
+from utils.cancellation import ConversionCancelled
 
 
 class ConversionWorker(QThread):
@@ -25,9 +26,32 @@ class ConversionWorker(QThread):
     def run(self):
         try:
             result = self.controller.run(self.options)
+            # Добавляем информацию о папке в результат
+            if isinstance(result, dict):
+                result['output_folder'] = self.options.output_folder
+                result['success'] = True
+            else:
+                # Если результат не словарь, оборачиваем его
+                result = {
+                    'data': result,
+                    'output_folder': self.options.output_folder,
+                    'success': True
+                }
             self.finished.emit(result)
+        except ConversionCancelled:
+            cancelled_result = {
+                'cancelled': True,
+                'output_folder': self.options.output_folder,
+                'success': False
+            }
+            self.finished.emit(cancelled_result)
         except Exception as e:
-            self.finished.emit(e)
+            error_result = {
+                'error': str(e),
+                'output_folder': self.options.output_folder,
+                'success': False
+            }
+            self.finished.emit(error_result)
 
 
 class MainWindow(QMainWindow):
@@ -36,12 +60,15 @@ class MainWindow(QMainWindow):
         self.controller = ConvertController()
         self.selected_paths = []
         self.recent_files = []  # Список недавних файлов
+        self.last_save_folder = None  # Последнее место сохранения
+        self.worker = None
         self.init_ui()
+        self.load_settings()  # Загружаем сохраненные настройки
         
     def init_ui(self):
-        self.setWindowTitle("🧬 StrandsOfCode - Конвертер кода в TXT")
+        self.setWindowTitle("🧬 StrandsOfCode - Конвертер кода")
         self.setGeometry(100, 100, 900, 700)
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(850, 750)
         
         # Применяем стили
         apply_theme(QApplication.instance(), "dark")
@@ -135,76 +162,127 @@ class MainWindow(QMainWindow):
         source_layout = QVBoxLayout()
         source_layout.setSpacing(10)
         
-        # Радио кнопки в сетке для лучшей организации
-        radio_grid = QGridLayout()
+        # Тип и формат в одной строке
+        header_layout = QHBoxLayout()
         
-        self.source_button_group = QButtonGroup()
-        self.radio_file = QRadioButton("📄 Один файл")
-        self.radio_files = QRadioButton("📁 Несколько файлов")
-        self.radio_folder = QRadioButton("📂 Папка (без вложенных)")
-        self.radio_folder_recursive = QRadioButton("📂 Папка (рекурсивно)")
-        self.radio_python_project = QRadioButton("🚀 Программный проект")
+        # Выбор типа источника слева
+        header_layout.addWidget(QLabel("📋 Тип:"))
+        self.source_type_combo = QComboBox()
+        self.source_type_combo.addItems([
+            "📄 Один файл",
+            "📁 Несколько файлов", 
+            "📂 Папка",
+            "📂 Папка (рекурсивно)"
+        ])
+        self.source_type_combo.currentTextChanged.connect(self.on_source_type_changed)
+        self.source_type_combo.setMaximumWidth(200)
+        header_layout.addWidget(self.source_type_combo)
         
-        self.source_button_group.addButton(self.radio_file, 0)
-        self.source_button_group.addButton(self.radio_files, 1)
-        self.source_button_group.addButton(self.radio_folder, 2)
-        self.source_button_group.addButton(self.radio_folder_recursive, 3)
-        self.source_button_group.addButton(self.radio_python_project, 4)
+        # Растягивающееся пространство посередине
+        header_layout.addStretch()
         
-        self.radio_file.setChecked(True)
+        # Выбор формата исходных файлов справа
+        header_layout.addWidget(QLabel("📥 Формат ИЗ:"))
+        self.source_format_combo = QComboBox()
+        self.source_format_combo.addItems([
+            "🧩 Все поддерживаемые",
+            "🐍 Python (.py)", 
+            "🟨 JavaScript (.js)", 
+            "🔷 TypeScript (.ts)", 
+            "📄 Текст (.txt)", 
+            "📝 Markdown (.md)", 
+            "🌐 HTML (.html)"
+        ])
+        self.source_format_combo.currentTextChanged.connect(self.on_source_format_changed)
+        self.source_format_combo.setMaximumWidth(180)
+        header_layout.addWidget(self.source_format_combo)
         
-        radio_grid.addWidget(self.radio_file, 0, 0)
-        radio_grid.addWidget(self.radio_files, 0, 1)
-        radio_grid.addWidget(self.radio_folder, 1, 0)
-        radio_grid.addWidget(self.radio_folder_recursive, 1, 1)
-        radio_grid.addWidget(self.radio_python_project, 2, 0)
-        
-        source_layout.addLayout(radio_grid)
-        
-        # Кнопка выбора файлов/папок
+        # Кнопка выбора под заголовками
         select_layout = QHBoxLayout()
-        self.select_button = QPushButton("📂 Выбрать файл")
+        self.select_button = QPushButton("📂 Выбрать")
         self.select_button.clicked.connect(self.select_source)
+        select_layout.addWidget(self.select_button)
+        
+        # Метка выбранного файла
         self.selected_label = QLabel("Ничего не выбрано")
         self.selected_label.setObjectName("selectedLabel")
         self.selected_label.setWordWrap(True)
-        
-        select_layout.addWidget(self.select_button)
         select_layout.addWidget(self.selected_label, 1)
         
+        source_layout.addLayout(header_layout)
         source_layout.addLayout(select_layout)
         source_group.setLayout(source_layout)
         
         # Группа настроек вывода
-        output_group = QGroupBox("⚙️ Настройки вывода")
+        output_group = QGroupBox("💾 Сохранение результата")
         output_layout = QVBoxLayout()
         output_layout.setSpacing(12)
         
-        # Режим вывода
-        output_mode_layout = QHBoxLayout()
-        output_mode_layout.addWidget(QLabel("📋 Режим:"))
+        # Режим и формат в одной строке
+        output_header_layout = QHBoxLayout()
+        
+        # Режим вывода слева
+        output_header_layout.addWidget(QLabel("📋 Режим:"))
         self.output_mode_combo = QComboBox()
-        self.output_mode_combo.addItems(["📄 Отдельные файлы", "📄 Объединенный файл"])
-        output_mode_layout.addWidget(self.output_mode_combo)
-        output_mode_layout.addStretch()
+        self.output_mode_combo.addItems(["📄 Отдельные файлы", "📄 В один файл"])
+        output_header_layout.addWidget(self.output_mode_combo)
+        self.output_mode_combo.setMaximumWidth(150)
         
-        output_layout.addLayout(output_mode_layout)
+        # Растягивающееся пространство посередине
+        output_header_layout.addStretch()
         
-        # Формат вывода
-        output_format_layout = QHBoxLayout()
-        output_format_layout.addWidget(QLabel("🎨 Формат:"))
+        # Формат вывода справа
+        output_header_layout.addWidget(QLabel("📤 Формат В:"))
         self.output_format_combo = QComboBox()
-        self.output_format_combo.addItems(["📄 Текст (.txt)", "📝 Markdown (.md)"])
+        self.output_format_combo.addItems([
+            "📄 Текст (.txt)", 
+            "📝 Markdown (.md)", 
+            "🌐 HTML (.html)",
+            "🐍 Python (.py)",
+            "🟨 JavaScript (.js)",
+            "🔷 TypeScript (.ts)"
+        ])
         self.output_format_combo.currentTextChanged.connect(self.on_format_changed)
-        output_format_layout.addWidget(self.output_format_combo)
-        output_format_layout.addStretch()
+        self.output_format_combo.setMaximumWidth(180)
+        output_header_layout.addWidget(self.output_format_combo)
         
-        output_layout.addLayout(output_format_layout)
+        output_layout.addLayout(output_header_layout)
+        
+        # Выбор места сохранения
+        save_location_layout = QHBoxLayout()
+        save_location_layout.addWidget(QLabel("📂 Место:"))
+        self.save_path_edit = QLineEdit()
+        self.save_path_edit.setReadOnly(True)
+        self.save_path_edit.setPlaceholderText("Выберите папку для сохранения...")
+        save_location_layout.addWidget(self.save_path_edit, 1)
+        
+        self.browse_save_button = QPushButton("📂 Обзор")
+        self.browse_save_button.clicked.connect(self.browse_save_location)
+        save_location_layout.addWidget(self.browse_save_button)
+        
+        output_layout.addLayout(save_location_layout)
+        
+        # Ввод имени файла
+        filename_layout = QHBoxLayout()
+        filename_layout.addWidget(QLabel("📝 Имя:"))
+        self.filename_edit = QLineEdit()
+        self.filename_edit.setPlaceholderText("Введите имя файла...")
+        filename_layout.addWidget(self.filename_edit, 1)
+        
+        self.generate_filename_button = QPushButton("🎲 Сгенерировать")
+        self.generate_filename_button.clicked.connect(self.generate_filename)
+        filename_layout.addWidget(self.generate_filename_button)
+        
+        output_layout.addLayout(filename_layout)
         
         # Настройки
         self.add_headers_checkbox = QCheckBox("📝 Добавлять заголовки и метаданные")
         self.add_headers_checkbox.setChecked(True)
         output_layout.addWidget(self.add_headers_checkbox)
+
+        self.add_line_numbers_checkbox = QCheckBox("🔢 Добавлять нумерацию строк")
+        self.add_line_numbers_checkbox.setChecked(True)
+        output_layout.addWidget(self.add_line_numbers_checkbox)
         
         output_group.setLayout(output_layout)
         
@@ -214,10 +292,17 @@ class MainWindow(QMainWindow):
         self.convert_button.clicked.connect(self.start_conversion)
         self.convert_button.setEnabled(False)
         self.convert_button.setMinimumHeight(50)
+
+        self.cancel_button = QPushButton("⛔ Отмена")
+        self.cancel_button.clicked.connect(self.cancel_conversion)
+        self.cancel_button.setVisible(False)
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.setMinimumHeight(40)
         
         left_layout.addWidget(source_group)
         left_layout.addWidget(output_group)
         left_layout.addWidget(self.convert_button)
+        left_layout.addWidget(self.cancel_button)
         left_layout.addStretch()
         
         # Правая панель - лог и прогресс
@@ -252,21 +337,170 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 1)
         main_layout.addWidget(splitter)
+    
+    def load_settings(self):
+        """Загружает сохраненные настройки"""
+        import json
+        import os
         
-        # Обновление текста кнопки выбора
-        self.source_button_group.buttonClicked.connect(self.update_select_button_text)
+        settings_file = Path.home() / ".strands_of_code_settings.json"
         
-    def update_select_button_text(self):
-        button_id = self.source_button_group.checkedId()
-        texts = {
-            0: "📂 Выбрать файл",
-            1: "📂 Выбрать файлы",
-            2: "📂 Выбрать папку",
-            3: "📂 Выбрать папку",
-            4: "📂 Выбрать папку проекта"
-        }
-        self.select_button.setText(texts.get(button_id, "Выбрать"))
+        try:
+            if settings_file.exists():
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+                
+                self.last_save_folder = settings.get('last_save_folder')
+                if self.last_save_folder:
+                    self.save_path_edit.setText(self.last_save_folder)
+                
+                # Устанавливаем последние значения комбобоксов
+                if settings.get('last_source_type'):
+                    index = self.source_type_combo.findText(settings['last_source_type'])
+                    if index >= 0:
+                        self.source_type_combo.setCurrentIndex(index)
+                
+                if settings.get('last_source_format'):
+                    index = self.source_format_combo.findText(settings['last_source_format'])
+                    if index >= 0:
+                        self.source_format_combo.setCurrentIndex(index)
+                
+                if settings.get('last_output_format'):
+                    index = self.output_format_combo.findText(settings['last_output_format'])
+                    if index >= 0:
+                        self.output_format_combo.setCurrentIndex(index)
+                        
+        except Exception as e:
+            print(f"Ошибка загрузки настроек: {e}")
+    
+    def save_settings(self):
+        """Сохраняет настройки"""
+        import json
         
+        settings_file = Path.home() / ".strands_of_code_settings.json"
+        
+        try:
+            settings = {
+                'last_save_folder': self.save_path_edit.text(),
+                'last_source_type': self.source_type_combo.currentText(),
+                'last_source_format': self.source_format_combo.currentText(),
+                'last_output_format': self.output_format_combo.currentText()
+            }
+            
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"Ошибка сохранения настроек: {e}")
+    
+    def browse_save_location(self):
+        """Открывает диалог выбора папки сохранения"""
+        from pathlib import Path
+        
+        # Предлагаем последнюю папку или Documents по умолчанию
+        if self.last_save_folder and Path(self.last_save_folder).exists():
+            default_folder = self.last_save_folder
+        else:
+            default_folder = Path.home() / "Documents" / "StrandsOfCode"
+            default_folder.mkdir(parents=True, exist_ok=True)
+        
+        folder = QFileDialog.getExistingDirectory(
+            self, "Выберите папку для сохранения", str(default_folder)
+        )
+        
+        if folder:
+            self.save_path_edit.setText(folder)
+            self.last_save_folder = folder
+            self.save_settings()
+    
+    def generate_filename(self):
+        """Генерирует уникальное имя файла"""
+        from datetime import datetime
+        from pathlib import Path
+        
+        if not self.save_path_edit.text():
+            QMessageBox.warning(self, "Внимание", "Сначала выберите папку для сохранения")
+            return
+        
+        # Определяем расширение
+        format_text = self.output_format_combo.currentText()
+        if "Текст" in format_text:
+            ext = ".txt"
+        elif "Markdown" in format_text:
+            ext = ".md"
+        elif "HTML" in format_text:
+            ext = ".html"
+        elif "Python" in format_text:
+            ext = ".py"
+        elif "JavaScript" in format_text:
+            ext = ".js"
+        elif "TypeScript" in format_text:
+            ext = ".ts"
+        else:
+            ext = ".txt"
+        
+        # Генерируем базовое имя
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Правильно извлекаем исходный формат
+        source_text = self.source_format_combo.currentText()
+        if "Python" in source_text:
+            source_format = "Python"
+        elif "JavaScript" in source_text:
+            source_format = "JavaScript"
+        elif "TypeScript" in source_text:
+            source_format = "TypeScript"
+        elif "Текст" in source_text:
+            source_format = "Text"
+        elif "Markdown" in source_text:
+            source_format = "Markdown"
+        elif "HTML" in source_text:
+            source_format = "HTML"
+        else:
+            source_format = "Unknown"
+        
+        # Правильно извлекаем целевой формат
+        output_format_text = self.output_format_combo.currentText()
+        if "Текст" in output_format_text:
+            target_format = "TXT"
+        elif "Markdown" in output_format_text:
+            target_format = "MD"
+        elif "HTML" in output_format_text:
+            target_format = "HTML"
+        elif "Python" in output_format_text:
+            target_format = "Python"
+        elif "JavaScript" in output_format_text:
+            target_format = "JS"
+        elif "TypeScript" in output_format_text:
+            target_format = "TS"
+        else:
+            target_format = "Unknown"
+        
+        base_name = f"{source_format}_to_{target_format}_{timestamp}"
+        
+        # Проверяем уникальность имени
+        save_folder = Path(self.save_path_edit.text())
+        counter = 1
+        final_name = base_name
+        
+        while (save_folder / (final_name + ext)).exists():
+            final_name = f"{base_name}_{counter}"
+            counter += 1
+        
+        self.filename_edit.setText(final_name)
+    
+    def get_unique_filename(self, base_name: str, extension: str) -> str:
+        """Возвращает уникальное имя файла"""
+        save_folder = Path(self.save_path_edit.text())
+        counter = 1
+        final_name = base_name
+        
+        while (save_folder / (final_name + extension)).exists():
+            final_name = f"{base_name}_{counter}"
+            counter += 1
+        
+        return final_name
+    
     def change_theme(self, theme_text):
         """Изменяет тему приложения"""
         if "Темная" in theme_text:
@@ -274,14 +508,49 @@ class MainWindow(QMainWindow):
         else:
             apply_theme(QApplication.instance(), "light")
     
+    def on_source_type_changed(self, type_text):
+        """Обрабатывает изменение типа источника"""
+        # Обновляем текст кнопки в зависимости от типа
+        if "Один файл" in type_text:
+            self.select_button.setText("📂 Выбрать файл")
+        elif "Несколько файлов" in type_text:
+            self.select_button.setText("📂 Выбрать файлы")
+        elif "Папка" in type_text:
+            self.select_button.setText("📂 Выбрать папку")
+    
+    def on_source_format_changed(self, format_text):
+        """Обрабатывает изменение формата исходных файлов"""
+        # Обновляем фильтры файлов в зависимости от формата
+        # Эта логика будет работать в select_source
+    
     def on_format_changed(self, format_text):
         """Обрабатывает изменение формата вывода"""
-        # При выборе Markdown режим вывода всегда "Объединенный файл"
-        if "Markdown" in format_text:
-            self.output_mode_combo.setCurrentText("📄 Объединенный файл")
+        # При выборе Markdown или HTML режим вывода всегда "Объединенный файл"
+        if "Markdown" in format_text or "HTML" in format_text:
+            self.output_mode_combo.setCurrentText("📄 В один файл")
             self.output_mode_combo.setEnabled(False)
         else:
             self.output_mode_combo.setEnabled(True)
+
+    def _get_source_extensions(self, format_text: str):
+        """Возвращает список расширений для сбора файлов.
+        Пустой список означает мульти-режим (все поддерживаемые расширения).
+        """
+        if "Все поддерживаемые" in format_text:
+            return []
+        if "Python" in format_text:
+            return [".py"]
+        if "JavaScript" in format_text:
+            return [".js", ".jsx"]
+        if "TypeScript" in format_text:
+            return [".ts", ".tsx"]
+        if "Текст" in format_text:
+            return [".txt"]
+        if "Markdown" in format_text:
+            return [".md"]
+        if "HTML" in format_text:
+            return [".html"]
+        return []
     
     def show_about(self):
         """Показывает окно 'О программе'"""
@@ -318,43 +587,64 @@ class MainWindow(QMainWindow):
         QMessageBox.about(self, "О программе", about_text)
         
     def select_source(self):
-        button_id = self.source_button_group.checkedId()
+        source_type = self.source_type_combo.currentText()
+        source_format = self.source_format_combo.currentText()
         
-        if button_id == 0:  # Один файл
+        # Определяем фильтр файлов в зависимости от формата
+        file_filter = self._get_file_filter(source_format)
+        
+        if "Один файл" in source_type:
             file_path, _ = QFileDialog.getOpenFileName(
-                self, "Выберите файл кода", "", 
-                "Code files (*.py *.js *.ts *.tsx *.jsx);;Python files (*.py);;JavaScript files (*.js *.jsx);;TypeScript files (*.ts *.tsx);;All files (*)"
+                self, "Выберите файл", "", file_filter
             )
             if file_path:
                 self.selected_paths = [Path(file_path)]
                 self.selected_label.setText(file_path)
+                self.convert_button.setEnabled(True)
+                self.update_statistics()
+                self.last_action_label.setText("⏰ Последнее действие: Выбран файл")
                 
-        elif button_id == 1:  # Несколько файлов
+        elif "Несколько файлов" in source_type:
             file_paths, _ = QFileDialog.getOpenFileNames(
-                self, "Выберите файлы кода", "", 
-                "Code files (*.py *.js *.ts *.tsx *.jsx);;Python files (*.py);;JavaScript files (*.js *.jsx);;TypeScript files (*.ts *.tsx);;All files (*)"
+                self, "Выберите файлы", "", file_filter
             )
             if file_paths:
                 self.selected_paths = [Path(p) for p in file_paths]
                 self.selected_label.setText(f"Выбрано {len(file_paths)} файлов")
+                self.convert_button.setEnabled(True)
+                self.update_statistics()
+                self.last_action_label.setText("⏰ Последнее действие: Выбрано несколько файлов")
                 
-        elif button_id in [2, 3, 4]:  # Папки
+        elif "Папка" in source_type:
             folder_path = QFileDialog.getExistingDirectory(self, "Выберите папку")
             if folder_path:
                 self.selected_paths = [Path(folder_path)]
                 self.selected_label.setText(folder_path)
-        
-        self.convert_button.setEnabled(bool(self.selected_paths))
-        
-        # Обновляем статистику
-        self.update_statistics()
-        
-        # Добавляем в недавние файлы
-        for path in self.selected_paths:
-            self.add_recent_file(path)
+                self.convert_button.setEnabled(True)
+                self.update_statistics()
+                self.last_action_label.setText("⏰ Последнее действие: Выбрана папка")
         
         # Обновляем последнее действие
         self.last_action_label.setText("⏰ Последнее действие: Выбраны файлы/папки")
+    
+    def _get_file_filter(self, format_text):
+        """Возвращает фильтр файлов в зависимости от формата"""
+        if "Все поддерживаемые" in format_text:
+            return "Supported files (*.py *.js *.jsx *.ts *.tsx *.txt *.md *.html);;All files (*)"
+        elif "Python" in format_text:
+            return "Python files (*.py);;All files (*)"
+        elif "JavaScript" in format_text:
+            return "JavaScript files (*.js *.jsx);;All files (*)"
+        elif "TypeScript" in format_text:
+            return "TypeScript files (*.ts *.tsx);;All files (*)"
+        elif "Текст" in format_text:
+            return "Text files (*.txt);;All files (*)"
+        elif "Markdown" in format_text:
+            return "Markdown files (*.md);;All files (*)"
+        elif "HTML" in format_text:
+            return "HTML files (*.html);;All files (*)"
+        else:
+            return "All files (*)"
         
     def update_statistics(self):
         """Обновляет статистику выбранных файлов"""
@@ -449,28 +739,92 @@ class MainWindow(QMainWindow):
         if not self.selected_paths:
             QMessageBox.warning(self, "Внимание", "Сначала выберите источник файлов")
             return
-            
-        # Получение настроек
-        source_type_map = {
-            0: "file",
-            1: "files", 
-            2: "folder",
-            3: "folder_recursive",
-            4: "python_project"
-        }
-        source_type = source_type_map[self.source_button_group.checkedId()]
         
-        output_mode = "separate" if self.output_mode_combo.currentIndex() == 0 else "combined"
+        # Проверяем место сохранения
+        if not self.save_path_edit.text():
+            QMessageBox.warning(self, "Внимание", "Сначала выберите папку для сохранения")
+            return
         
-        # Определяем формат вывода
-        format_text = self.output_format_combo.currentText()
-        output_format = "markdown" if "Markdown" in format_text else "txt"
-        
-        # Выбор папки для сохранения
-        output_folder = QFileDialog.getExistingDirectory(self, "Выберите папку для сохранения")
-        if not output_folder:
+        # Проверяем имя файла
+        if not self.filename_edit.text():
+            QMessageBox.warning(self, "Внимание", "Введите имя файла или сгенерируйте его")
             return
             
+        # Получение настроек
+        source_format = self.source_format_combo.currentText()
+        output_format_text = self.output_format_combo.currentText()
+        
+        # Определяем тип источника
+        source_type_text = self.source_type_combo.currentText()
+        if "Один файл" in source_type_text:
+            source_type = "file"
+        elif "Несколько файлов" in source_type_text:
+            source_type = "files"
+        elif "Папка (рекурсивно)" in source_type_text:
+            source_type = "folder_recursive"
+        else:  # Папка
+            source_type = "folder"
+        
+        # Определяем формат вывода
+        if "Текст" in output_format_text:
+            output_format = "txt"
+        elif "Markdown" in output_format_text:
+            output_format = "markdown"
+        elif "HTML" in output_format_text:
+            output_format = "html"
+        elif "Python" in output_format_text:
+            output_format = "python"
+        elif "JavaScript" in output_format_text:
+            output_format = "javascript"
+        elif "TypeScript" in output_format_text:
+            output_format = "typescript"
+        else:
+            output_format = "txt"  # по умолчанию
+        
+        # Определяем режим вывода
+        output_mode_text = self.output_mode_combo.currentText()
+        output_mode = "separate" if "Отдельные" in output_mode_text else "combined"
+        
+        # Используем указанную папку сохранения напрямую
+        base_folder = Path(self.save_path_edit.text())
+        
+        # Имя файла с расширением
+        filename_base = self.filename_edit.text()
+        
+        # Определяем расширение
+        if output_format == "txt":
+            ext = ".txt"
+        elif output_format == "markdown":
+            ext = ".md"
+        elif output_format == "html":
+            ext = ".html"
+        elif output_format == "python":
+            ext = ".py"
+        elif output_format == "javascript":
+            ext = ".js"
+        elif output_format == "typescript":
+            ext = ".ts"
+        else:
+            ext = ".txt"
+        
+        # Проверяем уникальность имени файла
+        final_filename = self.get_unique_filename(filename_base, ext)
+        output_folder = base_folder
+        
+        # Информируем пользователя о месте сохранения
+        self.log_text.append(f"📂 Папка сохранения: {base_folder}")
+        self.log_text.append(f"📝 Имя файла: {final_filename}{ext}")
+        self.log_text.append(f"📂 Полный путь: {base_folder / (final_filename + ext)}")
+        self.log_text.append("🔄 Начинаю конвертацию...")
+        
+        # Проверяем права доступа
+        try:
+            base_folder.mkdir(parents=True, exist_ok=True)
+            self.log_text.append(f"✅ Папка доступна: {base_folder}")
+        except Exception as e:
+            self.log_text.append(f"❌ Ошибка доступа к папке: {e}")
+            return
+        
         # Создание опций
         options = ConversionOptions(
             source_type=source_type,
@@ -478,44 +832,96 @@ class MainWindow(QMainWindow):
             output_mode=output_mode,
             output_format=output_format,
             output_folder=Path(output_folder),
-            extensions=[".py", ".js", ".ts", ".tsx", ".jsx"],
-            add_headers=self.add_headers_checkbox.isChecked()
+            extensions=self._get_source_extensions(source_format),
+            add_headers=self.add_headers_checkbox.isChecked(),
+            add_line_numbers=self.add_line_numbers_checkbox.isChecked(),
+            filename=final_filename + ext
         )
+        
+        # Отладочная информация
+        self.log_text.append(f"🔍 Тип источника: {source_type}")
+        self.log_text.append(f"📁 Пути: {self.selected_paths}")
+        self.log_text.append(f"📤 Формат вывода: {output_format}")
+        self.log_text.append(f"📂 Папка вывода: {output_folder}")
+        
+        # Сохраняем настройки
+        self.save_settings()
         
         # Запуск конвертации в отдельном потоке
         self.convert_button.setEnabled(False)
+        self.cancel_button.setVisible(True)
+        self.cancel_button.setEnabled(True)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
-        self.log_text.clear()
-        self.log_text.append("Начинаю конвертацию...")
         
         self.worker = ConversionWorker(self.controller, options)
         self.worker.finished.connect(self.on_conversion_finished)
         self.worker.start()
+
+    def cancel_conversion(self):
+        if self.worker and self.worker.isRunning():
+            self.log_text.append("⛔ Запрошена отмена...")
+            self.worker.requestInterruption()
+            self.cancel_button.setEnabled(False)
         
     def on_conversion_finished(self, result):
+        """Обрабатывает завершение конвертации"""
         self.progress_bar.setVisible(False)
         self.convert_button.setEnabled(True)
+        self.cancel_button.setVisible(False)
+        self.cancel_button.setEnabled(False)
         
-        if isinstance(result, Exception):
-            self.log_text.append(f"Ошибка: {str(result)}")
-            self.last_action_label.setText("⏰ Последнее действие: Ошибка конвертации")
-            QMessageBox.critical(self, "Ошибка", f"Произошла ошибка: {str(result)}")
+        if result.get('success', True):
+            # Успешная конвертация
+            if 'combined_file' in result:
+                output_file = result['combined_file']['output_path']
+                self.log_text.append(f"✅ Готово! Файл сохранен: {output_file}")
+            elif 'output_files' in result and result['output_files']:
+                files = result['output_files']
+                self.log_text.append(f"✅ Готово! Сохранено файлов: {len(files)}")
+                for file_path in files[:5]:  # Показываем первые 5 файлов
+                    self.log_text.append(f"📄 {file_path}")
+                if len(files) > 5:
+                    self.log_text.append(f"... и еще {len(files) - 5} файлов")
+            
+            # Статистика
+            if 'duration' in result:
+                duration = result['duration']
+                self.log_text.append(f"⏱️ Время выполнения: {duration.total_seconds():.2f} сек")
+            
+            if 'total_size' in result:
+                size_mb = result['total_size'] / (1024 * 1024)
+                self.log_text.append(f"📊 Общий размер: {size_mb:.2f} МБ")
+            
+            # Открываем папку с результатами
+            if 'output_folder' in result:
+                import subprocess
+                import platform
+                folder = result['output_folder']
+                try:
+                    if platform.system() == "Windows":
+                        subprocess.run(f'explorer "{folder}"', shell=True)
+                    elif platform.system() == "Darwin":  # macOS
+                        subprocess.run(["open", str(folder)])
+                    else:  # Linux
+                        subprocess.run(["xdg-open", str(folder)])
+                    self.log_text.append(f"📂 Папка с результатами открыта")
+                except:
+                    self.log_text.append(f"📂 Папка с результатами: {folder}")
+            
+            self.last_action_label.setText("✅ Конвертация завершена успешно!")
+            
         else:
-            if result.success():
-                self.log_text.append(f"Успешно! Сконвертировано: {result.files_converted} файлов")
-                if result.created_files:
-                    files_text = "\n".join(str(f) for f in result.created_files)
-                    self.log_text.append(f"Созданные файлы:\n{files_text}")
-                self.last_action_label.setText("⏰ Последнее действие: Конвертация завершена")
-                QMessageBox.information(self, "Готово", f"Конвертация завершена успешно!\nОбработано файлов: {result.files_converted}")
-            else:
-                self.log_text.append("Конвертация завершена с ошибками")
-                if result.errors:
-                    errors_text = "\n".join(result.errors)
-                    self.log_text.append(f"Ошибки:\n{errors_text}")
-                self.last_action_label.setText("⏰ Последнее действие: Конвертация с ошибками")
-                QMessageBox.warning(self, "Предупреждение", "Конвертация завершена с ошибками. Проверьте лог.")
+            if result.get('cancelled'):
+                self.log_text.append("⛔ Конвертация отменена пользователем")
+                self.last_action_label.setText("⛔ Конвертация отменена")
+                return
+
+            # Ошибка
+            error_msg = result.get('error', 'Неизвестная ошибка')
+            self.log_text.append(f"❌ Ошибка: {error_msg}")
+            self.last_action_label.setText("❌ Конвертация завершилась с ошибкой")
+            QMessageBox.critical(self, "Ошибка", f"Конвертация завершилась с ошибкой:\n{error_msg}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

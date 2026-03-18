@@ -145,10 +145,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-test/output/
-test/temp/
-*.txt
-*.md
+test/
 !README.md
 !ROADMAP.md
 !CHANGELOG.md

@@ -34,23 +34,32 @@ def read_file_safe(file_path: Path, encoding: Optional[str] = None) -> Tuple[str
     Returns:
         Кортеж (содержимое_файла, использованная_кодировка)
     """
+    detected = None
     if encoding is None:
-        encoding = detect_file_encoding(file_path)
-    
-    try:
-        with open(file_path, 'r', encoding=encoding) as f:
-            content = f.read()
-        return content, encoding
-    except UnicodeDecodeError:
-        # Если не удалось с определенной кодировкой, пробуем распространенные
-        for enc in ['utf-8', 'cp1251', 'latin1']:
-            try:
-                with open(file_path, 'r', encoding=enc) as f:
-                    content = f.read()
-                return content, enc
-            except UnicodeDecodeError:
-                continue
-        raise
+        detected = detect_file_encoding(file_path)
+    else:
+        detected = encoding
+
+    # chardet иногда ошибается (особенно на коротких файлах), поэтому сначала пробуем UTF-8
+    # и только потом используем детектированную кодировку.
+    candidates = ['utf-8-sig', 'utf-8']
+    if detected:
+        candidates.append(detected)
+    candidates.extend(['cp1251', 'latin1'])
+
+    last_error: Optional[Exception] = None
+    for enc in candidates:
+        try:
+            with open(file_path, 'r', encoding=enc) as f:
+                content = f.read()
+            return content, enc
+        except UnicodeDecodeError as e:
+            last_error = e
+            continue
+
+    if last_error:
+        raise last_error
+    raise UnicodeDecodeError('utf-8', b'', 0, 1, 'Unable to decode file')
 
 
 def write_file_safe(file_path: Path, content: str, encoding: str = 'utf-8') -> bool:
