@@ -16,15 +16,19 @@ class ConversionOptions:
     # выбранные пути
     paths: List[Path]
 
-    # режим вывода
-    output_mode: str
-    # separate | combined
-
     # папка сохранения
     output_folder: Path
 
     # расширения файлов для обработки
     extensions: List[str]
+
+    # режим вывода
+    output_mode: str
+    # separate | combined
+
+    # формат вывода
+    output_format: str = "txt"
+    # txt | markdown | html
 
     # добавлять заголовки файлов при объединении
     add_headers: bool = True

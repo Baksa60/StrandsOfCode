@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QRadioButton, QButtonGroup, QProgressBar, QTextEdit,
     QFileDialog, QMessageBox, QSplitter, QFrame, QScrollArea, QGridLayout
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QThread
 from PyQt6.QtGui import QIcon, QFont, QPalette
 from controllers.convert_controller import ConvertController
 from models.conversion_options import ConversionOptions
@@ -190,6 +190,17 @@ class MainWindow(QMainWindow):
         
         output_layout.addLayout(output_mode_layout)
         
+        # Формат вывода
+        output_format_layout = QHBoxLayout()
+        output_format_layout.addWidget(QLabel("🎨 Формат:"))
+        self.output_format_combo = QComboBox()
+        self.output_format_combo.addItems(["📄 Текст (.txt)", "📝 Markdown (.md)"])
+        self.output_format_combo.currentTextChanged.connect(self.on_format_changed)
+        output_format_layout.addWidget(self.output_format_combo)
+        output_format_layout.addStretch()
+        
+        output_layout.addLayout(output_format_layout)
+        
         # Настройки
         self.add_headers_checkbox = QCheckBox("📝 Добавлять заголовки и метаданные")
         self.add_headers_checkbox.setChecked(True)
@@ -262,6 +273,15 @@ class MainWindow(QMainWindow):
             apply_theme(QApplication.instance(), "dark")
         else:
             apply_theme(QApplication.instance(), "light")
+    
+    def on_format_changed(self, format_text):
+        """Обрабатывает изменение формата вывода"""
+        # При выборе Markdown режим вывода всегда "Объединенный файл"
+        if "Markdown" in format_text:
+            self.output_mode_combo.setCurrentText("📄 Объединенный файл")
+            self.output_mode_combo.setEnabled(False)
+        else:
+            self.output_mode_combo.setEnabled(True)
     
     def show_about(self):
         """Показывает окно 'О программе'"""
@@ -442,6 +462,10 @@ class MainWindow(QMainWindow):
         
         output_mode = "separate" if self.output_mode_combo.currentIndex() == 0 else "combined"
         
+        # Определяем формат вывода
+        format_text = self.output_format_combo.currentText()
+        output_format = "markdown" if "Markdown" in format_text else "txt"
+        
         # Выбор папки для сохранения
         output_folder = QFileDialog.getExistingDirectory(self, "Выберите папку для сохранения")
         if not output_folder:
@@ -452,6 +476,7 @@ class MainWindow(QMainWindow):
             source_type=source_type,
             paths=self.selected_paths,
             output_mode=output_mode,
+            output_format=output_format,
             output_folder=Path(output_folder),
             extensions=[".py", ".js", ".ts", ".tsx", ".jsx"],
             add_headers=self.add_headers_checkbox.isChecked()

@@ -1,5 +1,6 @@
 from services.file_collector import FileCollector
 from services.converter_service import ConverterService
+from services.markdown_converter_service import MarkdownConverterService
 from config import DEFAULT_COMBINED_FILENAME
 
 class ConvertController:
@@ -7,6 +8,7 @@ class ConvertController:
     def __init__(self):
         self.collector = FileCollector()
         self.converter = ConverterService()
+        self.markdown_converter = MarkdownConverterService()
 
     def run(self, options):
 
@@ -50,7 +52,26 @@ class ConvertController:
         else:
             raise ValueError("Unknown source type")
 
-        if options.output_mode == "separate":
+        if options.output_format == "markdown":
+            # Конвертация в Markdown
+            if options.source_type == "python_project":
+                base_folder = options.paths[0]
+            elif options.source_type in ["folder", "folder_recursive"]:
+                base_folder = options.paths[0]
+            else:
+                # Для файлов используем папку первого файла
+                base_folder = options.paths[0].parent if options.paths else None
+            
+            result = self.markdown_converter.convert_to_markdown(
+                files,
+                options.output_folder,
+                options.add_headers,
+                True,  # Всегда добавляем нумерацию строк в Markdown
+                True,  # Всегда создаем дерево в Markdown
+                base_folder
+            )
+            
+        elif options.output_mode == "separate":
 
             result = self.converter.convert_to_separate_txt(
                 files,
