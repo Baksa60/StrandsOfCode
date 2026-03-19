@@ -19,9 +19,10 @@ class TextToTextConverter:
     
     def __init__(self):
         self.supported_conversions = {
-            'txt': ['markdown', 'html'],
-            'markdown': ['txt', 'html'],
-            'html': ['txt', 'markdown']
+            'txt': ['markdown', 'html', 'json'],
+            'markdown': ['txt', 'html', 'json'],
+            'html': ['txt', 'markdown', 'json'],
+            'json': ['txt', 'markdown', 'html'],
         }
     
     def convert_text(self, files: List[Path], output_folder: Path, 
@@ -119,10 +120,16 @@ class TextToTextConverter:
         converters = {
             ('txt', 'markdown'): self._txt_to_markdown,
             ('txt', 'html'): self._txt_to_html,
+            ('txt', 'json'): self._txt_to_json,
             ('markdown', 'txt'): self._markdown_to_txt,
             ('markdown', 'html'): self._markdown_to_html,
+            ('markdown', 'json'): self._markdown_to_json,
             ('html', 'txt'): self._html_to_txt,
-            ('html', 'markdown'): self._html_to_markdown
+            ('html', 'markdown'): self._html_to_markdown,
+            ('html', 'json'): self._html_to_json,
+            ('json', 'txt'): self._json_to_txt,
+            ('json', 'markdown'): self._json_to_markdown,
+            ('json', 'html'): self._json_to_html,
         }
         
         converter = converters.get((source_format, target_format))
@@ -168,6 +175,62 @@ class TextToTextConverter:
         html_lines.extend(['</body>', '</html>'])
         
         return '\n'.join(html_lines)
+
+    def _txt_to_json(self, content: str) -> str:
+        import json
+
+        try:
+            data = json.loads(content)
+        except Exception:
+            data = None
+
+        if data is not None:
+            return json.dumps(data, ensure_ascii=False, indent=2)
+
+        payload = {
+            'format': 'strands_of_code.text.json.v1',
+            'source_format': 'txt',
+            'content': content,
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+
+    def _markdown_to_json(self, content: str) -> str:
+        import json
+
+        txt = self._markdown_to_txt(content)
+        try:
+            data = json.loads(txt)
+        except Exception:
+            data = None
+
+        if data is not None:
+            return json.dumps(data, ensure_ascii=False, indent=2)
+
+        payload = {
+            'format': 'strands_of_code.text.json.v1',
+            'source_format': 'markdown',
+            'content': content,
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+
+    def _html_to_json(self, content: str) -> str:
+        import json
+
+        txt = self._html_to_txt(content)
+        try:
+            data = json.loads(txt)
+        except Exception:
+            data = None
+
+        if data is not None:
+            return json.dumps(data, ensure_ascii=False, indent=2)
+
+        payload = {
+            'format': 'strands_of_code.text.json.v1',
+            'source_format': 'html',
+            'content': content,
+        }
+        return json.dumps(payload, ensure_ascii=False, indent=2)
     
     def _markdown_to_txt(self, content: str) -> str:
         """Конвертирует Markdown в TXT"""
@@ -298,9 +361,32 @@ class TextToTextConverter:
         extensions = {
             'txt': 'txt',
             'markdown': 'md',
-            'html': 'html'
+            'html': 'html',
+            'json': 'json',
         }
         return extensions.get(format_name, 'txt')
+
+    def _json_to_txt(self, content: str) -> str:
+        import json
+
+        try:
+            data = json.loads(content)
+        except Exception:
+            return content
+
+        if isinstance(data, dict) and data.get('format') == 'strands_of_code.text.json.v1' and 'content' in data:
+            if isinstance(data.get('content'), str):
+                return data['content']
+
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    def _json_to_markdown(self, content: str) -> str:
+        txt = self._json_to_txt(content)
+        return self._txt_to_markdown(txt)
+
+    def _json_to_html(self, content: str) -> str:
+        txt = self._json_to_txt(content)
+        return self._txt_to_html(txt)
     
     def _create_combined_file(self, files: List[Path], output_folder: Path,
                             source_format: str, target_format: str, filename: str = None) -> dict:

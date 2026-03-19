@@ -1,4 +1,4 @@
-DEFAULT_EXTENSIONS = [".py", ".js", ".ts", ".tsx", ".jsx"]
+DEFAULT_EXTENSIONS = [".py", ".js", ".ts", ".tsx", ".jsx", ".json"]
 
 DEFAULT_COMBINED_FILENAME = "combined_code.txt"
 

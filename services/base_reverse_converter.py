@@ -14,7 +14,7 @@ class BaseReverseConverter(ABC):
     """
     
     def __init__(self):
-        self.supported_extensions = ['.txt', '.md', '.html']
+        self.supported_extensions = ['.txt', '.md', '.html', '.json']
         
     @abstractmethod
     def convert_to_code(self, text_content: str, output_folder: Path, 
