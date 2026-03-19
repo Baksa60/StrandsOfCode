@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (
     QTextEdit, QProgressBar, QFileDialog, QMessageBox, QCheckBox,
     QSplitter, QGridLayout, QLineEdit
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize, QThread
-from PyQt6.QtGui import QIcon, QFont, QPalette
+from PyQt6.QtCore import Qt, pyqtSignal, QSize, QThread, QMimeData
+from PyQt6.QtGui import QIcon, QFont, QPalette, QDragEnterEvent, QDropEvent, QPainter, QColor
 from controllers.convert_controller import ConvertController
 from models.conversion_options import ConversionOptions
 from ui.styles import apply_theme
@@ -61,9 +61,13 @@ class MainWindow(QMainWindow):
         self.selected_paths = []
         self.recent_files = []  # Список недавних файлов
         self.last_save_folder = None  # Последнее место сохранения
+        self.is_drag_active = False  # Состояние drag & drop
         self.worker = None
         self.init_ui()
         self.load_settings()  # Загружаем сохраненные настройки
+        
+        # Включаем Drag & Drop
+        self.setAcceptDrops(True)
         
     def init_ui(self):
         self.setWindowTitle("🧬 StrandsOfCode - Конвертер кода")
@@ -515,6 +519,97 @@ class MainWindow(QMainWindow):
         self.log_text.clear()
         self.last_action_label.setText("⏰ Последнее действие: Лог очищен")
     
+    # Drag & Drop методы
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """Обрабатывает вход в зону Drag & Drop"""
+        if event.mimeData().hasUrls():
+            # Проверяем, что это файлы или папки
+            urls = event.mimeData().urls()
+            if urls:
+                self.is_drag_active = True
+                self.setStyleSheet("MainWindow { border: 3px dashed #4CAF50; }")
+                event.acceptProposedAction()
+        else:
+            event.ignore()
+    
+    def dragLeaveEvent(self, event):
+        """Обрабатывает выход из зоны Drag & Drop"""
+        self.is_drag_active = False
+        self.setStyleSheet("")  # Убираем подсветку
+        event.accept()
+    
+    def dropEvent(self, event: QDropEvent):
+        """Обрабатывает сброс файлов/папок"""
+        self.is_drag_active = False
+        self.setStyleSheet("")  # Убираем подсветку
+        
+        if event.mimeData().hasUrls():
+            urls = event.mimeData().urls()
+            paths = []
+            
+            for url in urls:
+                path = Path(url.toLocalFile())
+                if path.exists():
+                    paths.append(path)
+            
+            if paths:
+                self.process_dropped_files(paths)
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+        else:
+            event.ignore()
+    
+    def process_dropped_files(self, paths: list[Path]):
+        """Обрабатывает перетащенные файлы/папки"""
+        if not paths:
+            return
+        
+        # Определяем тип контента
+        files = []
+        folders = []
+        
+        for path in paths:
+            if path.is_file():
+                files.append(path)
+            elif path.is_dir():
+                folders.append(path)
+        
+        # Автоматически выбираем тип источника
+        if folders and not files:
+            # Только папки
+            if len(folders) == 1:
+                self.source_type_combo.setCurrentText("📂 Папка")
+            else:
+                self.source_type_combo.setCurrentText("📂 Папка (рекурсивно)")
+        elif files and not folders:
+            # Только файлы
+            if len(files) == 1:
+                self.source_type_combo.setCurrentText("📄 Один файл")
+            else:
+                self.source_type_combo.setCurrentText("📁 Несколько файлов")
+        else:
+            # Смешанное содержимое
+            self.source_type_combo.setCurrentText("📂 Папка (рекурсивно)")
+        
+        # Устанавливаем выбранные пути
+        self.selected_paths = paths
+        
+        # Обновляем отображение
+        if len(paths) == 1:
+            self.selected_label.setText(str(paths[0]))
+        else:
+            self.selected_label.setText(f'Выбрано {len(paths)} элементов')
+        
+        # Обновляем статистику
+        self.update_statistics()
+        
+        # Обновляем последнее действие
+        self.last_action_label.setText(f'⏰ Последнее действие: Перетащено {len(paths)} элементов')
+        
+        # Включаем кнопку конвертации
+        self.convert_button.setEnabled(True)
+    
     def change_theme(self, theme_text):
         """Изменяет тему приложения"""
         if "Темная" in theme_text:
@@ -635,7 +730,7 @@ class MainWindow(QMainWindow):
             )
             if file_paths:
                 self.selected_paths = [Path(p) for p in file_paths]
-                self.selected_label.setText(f"Выбрано {len(file_paths)} файлов")
+                self.selected_label.setText(f'Выбрано {len(file_paths)} файлов')
                 self.convert_button.setEnabled(True)
                 self.update_statistics()
                 self.last_action_label.setText("⏰ Последнее действие: Выбрано несколько файлов")
