@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Optional, List
 from models.conversion_result import ConversionResult
 from utils.file_utils import read_file_safe
+from utils.file_utils import ensure_unique_filename
+import os
 
 class ConvertController:
 
@@ -33,22 +35,61 @@ class ConvertController:
         # Текст → Код
         if source_format in ["txt", "markdown", "html"] and options.output_format in ["python", "javascript", "typescript"]:
             result = self._run_text_to_code_conversion(options)
-            return self._normalize_dict_result(result, options)
+            normalized = self._normalize_dict_result(result, options)
+            return self._postprocess_single_file_output(normalized, options)
         
         # Код → Код
         elif source_format in ["python", "javascript", "typescript"] and options.output_format in ["python", "javascript", "typescript"]:
             result = self._run_code_to_code_conversion(options)
-            return self._normalize_dict_result(result, options)
+            normalized = self._normalize_dict_result(result, options)
+            return self._postprocess_single_file_output(normalized, options)
         
         # Текст → Текст
         elif source_format in ["txt", "markdown", "html"] and options.output_format in ["txt", "markdown", "html"]:
             result = self._run_text_to_text_conversion(options)
-            return self._normalize_dict_result(result, options)
+            normalized = self._normalize_dict_result(result, options)
+            return self._postprocess_single_file_output(normalized, options)
         
         # Код → Текст (существующая логика)
         else:
             result = self._run_forward_conversion(options)
-            return self._normalize_dict_result(result, options)
+            normalized = self._normalize_dict_result(result, options)
+            return self._postprocess_single_file_output(normalized, options)
+
+    def _postprocess_single_file_output(self, result: dict, options) -> dict:
+        try:
+            if getattr(options, 'source_type', None) != 'file':
+                return result
+            if getattr(options, 'output_mode', None) != 'separate':
+                return result
+            if not getattr(options, 'filename', None):
+                return result
+
+            output_files = result.get('output_files')
+            if not output_files or len(output_files) != 1:
+                return result
+
+            src_path = Path(output_files[0])
+            if not src_path.exists():
+                return result
+
+            desired = Path(options.output_folder) / options.filename
+            if desired.suffix.lower() != src_path.suffix.lower():
+                desired = desired.with_suffix(src_path.suffix)
+            desired = ensure_unique_filename(desired)
+
+            if src_path.resolve() != desired.resolve():
+                desired.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(src_path, desired)
+                result['output_files'] = [desired]
+                if 'combined_file' in result and isinstance(result['combined_file'], dict):
+                    result['combined_file']['output_path'] = desired
+
+        except Exception as e:
+            result.setdefault('errors', [])
+            result['errors'].append(f"Ошибка переименования выходного файла: {e}")
+
+        return result
     
     def _detect_source_format(self, file_path: Optional[Path]) -> str:
         """Определяет формат исходного файла"""
@@ -201,6 +242,40 @@ class ConvertController:
         # Собираем файлы
         files = self._collect_files(options)
         
+        # Определяем базовую папку для дерева/относительных путей
+        if options.source_type == "python_project":
+            base_folder = options.paths[0]
+        elif options.source_type in ["folder", "folder_recursive"]:
+            base_folder = options.paths[0]
+        else:
+            base_folder = options.paths[0].parent if options.paths else None
+
+        # Для Markdown/HTML используем специализированные сервисы
+        if options.output_format == "markdown":
+            create_tree = options.output_mode == "combined"
+            return self.markdown_converter.convert_to_markdown(
+                files,
+                options.output_folder,
+                add_headers=options.add_headers,
+                add_line_numbers=options.add_line_numbers,
+                create_tree=create_tree,
+                base_folder=base_folder if create_tree else None,
+                filename=options.filename if create_tree else None,
+            )
+
+        if options.output_format == "html":
+            create_tree = options.output_mode == "combined"
+            return self.html_converter.convert_to_html(
+                files,
+                options.output_folder,
+                add_headers=options.add_headers,
+                add_line_numbers=options.add_line_numbers,
+                create_tree=create_tree,
+                base_folder=base_folder if create_tree else None,
+                filename=options.filename if create_tree else None,
+            )
+
+        # TXT (существующая логика)
         if options.output_mode == "separate":
             result = self.converter.convert_to_separate_txt(
                 files, 
@@ -210,23 +285,14 @@ class ConvertController:
             )
         else:
             # Используем имя файла из опций
-            output_file = options.output_folder / options.filename
-            
-            # Определяем базовую папку для дерева
-            if options.source_type == "python_project":
-                base_folder = options.paths[0]
-            elif options.source_type in ["folder", "folder_recursive"]:
-                base_folder = options.paths[0]
-            else:
-                # Для файлов используем папку первого файла
-                base_folder = options.paths[0].parent if options.paths else None
+            output_file = options.output_folder / (options.filename or DEFAULT_COMBINED_FILENAME)
             
             result = self.converter.convert_to_single_txt(
                 files, 
                 output_file, 
                 options.add_headers,
                 options.add_line_numbers,
-                base_folder
+                base_folder=base_folder,
             )
         
         if isinstance(result, ConversionResult):
@@ -277,8 +343,17 @@ class ConvertController:
         """
         Запускает обратную конвертацию (текст → код)
         """
+        if getattr(options, 'output_mode', None) != 'separate':
+            options.output_mode = 'separate'
+
         # Читаем входной файл
         input_file = options.paths[0]
+
+        if not input_file.is_file():
+            raise ValueError(
+                "Обратная конвертация (текст → код) поддерживает только один входной файл. "
+                "Выберите 'Один файл' и укажите .txt/.md/.html файл."
+            )
 
         try:
             content, _ = read_file_safe(input_file)

@@ -326,6 +326,15 @@ class MainWindow(QMainWindow):
         self.log_text.setMinimumHeight(200)
         self.log_text.setReadOnly(True)
         log_layout.addWidget(self.log_text)
+        
+        # Кнопка очистки лога
+        clear_log_layout = QHBoxLayout()
+        self.clear_log_button = QPushButton("🗑️ Очистить лог")
+        self.clear_log_button.clicked.connect(self.clear_log)
+        clear_log_layout.addWidget(self.clear_log_button)
+        clear_log_layout.addStretch()
+        log_layout.addLayout(clear_log_layout)
+        
         log_group.setLayout(log_layout)
         
         right_layout.addWidget(progress_group)
@@ -501,6 +510,11 @@ class MainWindow(QMainWindow):
         
         return final_name
     
+    def clear_log(self):
+        """Очищает лог операций"""
+        self.log_text.clear()
+        self.last_action_label.setText("⏰ Последнее действие: Лог очищен")
+    
     def change_theme(self, theme_text):
         """Изменяет тему приложения"""
         if "Темная" in theme_text:
@@ -510,24 +524,35 @@ class MainWindow(QMainWindow):
     
     def on_source_type_changed(self, type_text):
         """Обрабатывает изменение типа источника"""
-        # Обновляем текст кнопки в зависимости от типа
         if "Один файл" in type_text:
             self.select_button.setText("📂 Выбрать файл")
         elif "Несколько файлов" in type_text:
             self.select_button.setText("📂 Выбрать файлы")
-        elif "Папка" in type_text:
+        else:
             self.select_button.setText("📂 Выбрать папку")
-    
+
     def on_source_format_changed(self, format_text):
-        """Обрабатывает изменение формата исходных файлов"""
-        # Обновляем фильтры файлов в зависимости от формата
-        # Эта логика будет работать в select_source
-    
+        self._update_output_mode_rules()
+
     def on_format_changed(self, format_text):
-        """Обрабатывает изменение формата вывода"""
-        # При выборе Markdown или HTML режим вывода всегда "Объединенный файл"
-        if "Markdown" in format_text or "HTML" in format_text:
+        self._update_output_mode_rules()
+
+    def _update_output_mode_rules(self):
+        output_format_text = self.output_format_combo.currentText()
+        source_format_text = self.source_format_combo.currentText()
+
+        if "Markdown" in output_format_text or "HTML" in output_format_text:
             self.output_mode_combo.setCurrentText("📄 В один файл")
+            self.output_mode_combo.setEnabled(False)
+            return
+
+        is_reverse = (
+            ("Текст" in source_format_text or "Markdown" in source_format_text or "HTML" in source_format_text)
+            and ("Python" in output_format_text or "JavaScript" in output_format_text or "TypeScript" in output_format_text)
+        )
+
+        if is_reverse:
+            self.output_mode_combo.setCurrentText("📄 Отдельные файлы")
             self.output_mode_combo.setEnabled(False)
         else:
             self.output_mode_combo.setEnabled(True)
@@ -745,11 +770,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Внимание", "Сначала выберите папку для сохранения")
             return
         
-        # Проверяем имя файла
-        if not self.filename_edit.text():
-            QMessageBox.warning(self, "Внимание", "Введите имя файла или сгенерируйте его")
-            return
-            
         # Получение настроек
         source_format = self.source_format_combo.currentText()
         output_format_text = self.output_format_combo.currentText()
@@ -788,8 +808,8 @@ class MainWindow(QMainWindow):
         # Используем указанную папку сохранения напрямую
         base_folder = Path(self.save_path_edit.text())
         
-        # Имя файла с расширением
-        filename_base = self.filename_edit.text()
+        # Имя файла (может быть пустым, правила ниже)
+        filename_base = self.filename_edit.text().strip()
         
         # Определяем расширение
         if output_format == "txt":
@@ -806,15 +826,40 @@ class MainWindow(QMainWindow):
             ext = ".ts"
         else:
             ext = ".txt"
-        
-        # Проверяем уникальность имени файла
-        final_filename = self.get_unique_filename(filename_base, ext)
+
+        source_stem = None
+        if source_type == "file" and self.selected_paths:
+            try:
+                source_stem = Path(self.selected_paths[0]).stem
+            except Exception:
+                source_stem = None
+
+        if output_mode == "combined" and source_type != "file" and not filename_base:
+            QMessageBox.warning(self, "Внимание", "Для режима 'В один файл' при нескольких файлах/папке нужно ввести имя файла")
+            return
+
+        options_filename = None
+        if output_mode == "combined":
+            final_filename_base = filename_base or (source_stem or "combined")
+            final_filename_base = self.get_unique_filename(final_filename_base, ext)
+            options_filename = final_filename_base + ext
+        else:
+            # separate
+            if source_type == "file":
+                final_filename_base = filename_base or (source_stem or "output")
+                final_filename_base = self.get_unique_filename(final_filename_base, ext)
+                options_filename = final_filename_base + ext
+            else:
+                final_filename_base = None
+                options_filename = None
+
         output_folder = base_folder
         
         # Информируем пользователя о месте сохранения
         self.log_text.append(f"📂 Папка сохранения: {base_folder}")
-        self.log_text.append(f"📝 Имя файла: {final_filename}{ext}")
-        self.log_text.append(f"📂 Полный путь: {base_folder / (final_filename + ext)}")
+        if options_filename:
+            self.log_text.append(f"📝 Имя файла: {options_filename}")
+            self.log_text.append(f"📂 Полный путь: {base_folder / options_filename}")
         self.log_text.append("🔄 Начинаю конвертацию...")
         
         # Проверяем права доступа
@@ -835,7 +880,7 @@ class MainWindow(QMainWindow):
             extensions=self._get_source_extensions(source_format),
             add_headers=self.add_headers_checkbox.isChecked(),
             add_line_numbers=self.add_line_numbers_checkbox.isChecked(),
-            filename=final_filename + ext
+            filename=options_filename
         )
         
         # Отладочная информация

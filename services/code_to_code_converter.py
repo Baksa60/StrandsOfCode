@@ -159,8 +159,26 @@ class CodeToCodeConverter:
         lines = converted.split('\n')
         for i, line in enumerate(lines):
             stripped = line.strip()
-            if stripped and not stripped.startswith('//') and not stripped.startswith('/*') and not stripped.startswith('*') and not stripped.startswith('function') and not stripped.startswith('if') and not stripped.startswith('for') and not stripped.startswith('while') and not stripped.startswith('{') and not stripped.startswith('}') and not stripped.endswith('{') and not stripped.endswith('}') and not stripped.endswith(':'):
-                lines[i] = line.rstrip() + ';'
+            if not stripped:
+                continue
+            if stripped.startswith('//') or stripped.startswith('/*') or stripped.startswith('*'):
+                continue
+            if stripped.startswith('function') or stripped.startswith('if') or stripped.startswith('for') or stripped.startswith('while'):
+                continue
+            if stripped in {'{', '}', ');', ']', '],', ')'}:
+                continue
+            if stripped.startswith('{') or stripped.startswith('}'):
+                continue
+
+            # Не ставим ; если строка выглядит как продолжение выражения/коллекции
+            if stripped.endswith(('{', '}', ':', '[', '(', ',', '\\')):
+                continue
+
+            # Не ставим ; для строк-литералов (обычно элементы массивов/списков)
+            if (stripped.startswith('"') and stripped.endswith('"')) or (stripped.startswith("'") and stripped.endswith("'")):
+                continue
+
+            lines[i] = line.rstrip() + ';'
         
         return '\n'.join(lines)
     

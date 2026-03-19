@@ -21,7 +21,8 @@ class HtmlConverterService:
         
     def convert_to_html(self, files: List[Path], output_folder: Path, 
                       add_headers: bool = True, add_line_numbers: bool = True,
-                      create_tree: bool = True, base_folder: Optional[Path] = None) -> dict:
+                      create_tree: bool = True, base_folder: Optional[Path] = None,
+                      filename: Optional[str] = None) -> dict:
         """
         Конвертирует файлы в HTML формат
         
@@ -53,9 +54,15 @@ class HtmlConverterService:
         if create_tree and base_folder:
             # Создаем объединенный файл с деревом проекта
             combined_result = self._create_combined_html(
-                files, output_folder, add_headers, add_line_numbers, base_folder
+                files, output_folder, add_headers, add_line_numbers, base_folder, filename
             )
             results['combined_file'] = combined_result
+            results['converted_files'] = 1
+            results['output_files'].append(combined_result['output_path'])
+            results['total_size'] += combined_result['size']
+            results['end_time'] = datetime.now()
+            results['duration'] = results['end_time'] - results['start_time']
+            return results
         
         # Конвертируем каждый файл отдельно
         for file_path in files:
@@ -111,12 +118,17 @@ class HtmlConverterService:
     
     def _create_combined_html(self, files: List[Path], output_folder: Path,
                               add_headers: bool, add_line_numbers: bool,
-                              base_folder: Path) -> dict:
+                              base_folder: Path, filename: Optional[str] = None) -> dict:
         """
         Создает объединенный HTML файл с деревом проекта
         """
         
-        output_path = output_folder / "combined_code.html"
+        if filename:
+            output_path = output_folder / filename
+            if output_path.suffix.lower() != '.html':
+                output_path = output_path.with_suffix('.html')
+        else:
+            output_path = output_folder / "combined_code.html"
         
         # Создаем дерево проекта
         tree_content = self._create_project_tree(files, base_folder)

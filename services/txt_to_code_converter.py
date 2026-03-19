@@ -100,35 +100,36 @@ class TxtToCodeConverter(BaseReverseConverter):
         return extension_map.get(language.lower(), '.txt')
     
     def parse_txt_structure(self, content: str) -> Dict[str, str]:
-        """
-        Парсит TXT файл для извлечения структуры
-        """
-        structure = {}
-        
+        structure: Dict[str, str] = {}
+
         lines = content.split('\n')
-        current_file = None
-        current_content = []
-        
+        current_file: Optional[str] = None
+        current_content: List[str] = []
+
+        header_re = re.compile(r'^=====\s+(?P<name>.+?)\s+=====$')
+
+        def flush():
+            nonlocal current_file, current_content
+            if current_file is not None:
+                structure[current_file] = '\n'.join(current_content).strip('\n')
+
         for line in lines:
-            # Ищем заголовки файлов
-            if line.startswith('## 📄 ') or line.startswith('### 📄 '):
-                # Сохраняем предыдущий файл
-                if current_file and current_content:
-                    structure[current_file] = '\n'.join(current_content)
-                
-                # Начинаем новый файл
-                try:
-                    current_file = line.split('📄 ')[1].strip()
-                except IndexError:
-                    continue
+            m = header_re.match(line.strip())
+            if m:
+                flush()
+                current_file = m.group('name').strip()
                 current_content = []
-            
-            # Собираем контент файла
-            elif current_file and (line.strip() or line.startswith('│') or '```' in line):
-                current_content.append(line)
-        
-        # Сохраняем последний файл
-        if current_file and current_content:
-            structure[current_file] = '\n'.join(current_content)
-        
-        return structure
+                continue
+
+            if current_file is None:
+                continue
+
+            if line.startswith('Path:') or line.startswith('Lines:') or line.startswith('Size:'):
+                continue
+            if line and line.strip('-') == '':
+                continue
+
+            current_content.append(line)
+
+        flush()
+        return {k: v for k, v in structure.items() if v.strip()}

@@ -98,9 +98,16 @@ class BaseReverseConverter(ABC):
         cleaned_lines = []
         
         for line in lines:
+            if line.startswith('Path:') or line.startswith('Lines:') or line.startswith('Size:'):
+                continue
+            if line and line.strip('-') == '':
+                continue
+
             # Удаляем нумерацию строк если есть
             if line.strip() and line[0].isdigit() and '│' in line:
                 cleaned_lines.append(line.split('│', 1)[1] if '│' in line else line)
+            elif len(line) >= 6 and line[:4].isdigit() and line[4:6] == ': ':
+                cleaned_lines.append(line[6:])
             else:
                 cleaned_lines.append(line)
         

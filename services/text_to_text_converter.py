@@ -266,7 +266,7 @@ class TextToTextConverter:
         processed = re.sub(r'`(.*?)`', r'<code>\1</code>', processed)
         
         # Ссылки
-        processed = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'<a href="\2">\1</a>', processed)
+        processed = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', processed)
         
         return processed
     
