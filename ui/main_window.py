@@ -196,7 +196,7 @@ class MainWindow(QMainWindow):
 
         about_button = QPushButton("ℹ️ О программе")
 
-        about_button.setMaximumWidth(120)
+        about_button.setMinimumWidth(130)
 
         about_button.clicked.connect(self.show_about)
 
