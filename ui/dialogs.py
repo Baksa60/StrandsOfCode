@@ -37,49 +37,6 @@ class ProgressDialog(QDialog):
         self.accept()
 
 
-class AboutDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("О программе")
-        self.setModal(True)
-        self.setFixedSize(400, 300)
-        
-        layout = QVBoxLayout(self)
-        
-        # Информация о программе
-        info_text = """
-        <h2>py2txt_tool</h2>
-        <p>Версия: 1.0.0</p>
-        <p>Конвертер Python файлов в текстовый формат</p>
-        
-        <h3>Возможности:</h3>
-        <ul>
-        <li>Конвертация отдельных файлов</li>
-        <li>Обработка папок и проектов</li>
-        <li>Создание объединенных файлов</li>
-        <li>Добавление метаданных и номеров строк</li>
-        </ul>
-        
-        <h3>Технологии:</h3>
-        <p>Python 3.8+, PyQt6</p>
-        
-        <p><b>Разработано для удобной передачи кода в текстовом формате</b></p>
-        """
-        
-        info_label = QLabel(info_text)
-        info_label.setWordWrap(True)
-        info_label.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(info_label)
-        
-        # Кнопка закрытия
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        close_button = QPushButton("Закрыть")
-        close_button.clicked.connect(self.accept)
-        button_layout.addWidget(close_button)
-        layout.addLayout(button_layout)
-
-
 class ErrorDialog(QDialog):
     def __init__(self, error_message, parent=None):
         super().__init__(parent)

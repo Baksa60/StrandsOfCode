@@ -12,6 +12,7 @@ from controllers.convert_controller import ConvertController
 from models.conversion_options import ConversionOptions
 from ui.styles import apply_theme
 from utils.cancellation import ConversionCancelled
+from version import get_app_info, get_version_string
 
 
 class ConversionWorker(QThread):
@@ -673,11 +674,6 @@ class MainWindow(QMainWindow):
                         ext_counts[ext] = ext_counts.get(ext, 0) + 1
                         total_files += 1
         
-        # Отладочная информация
-        print(f"DEBUG: all_extensions = {all_extensions}")
-        print(f"DEBUG: ext_counts = {ext_counts}")
-        print(f"DEBUG: total_files = {total_files}")
-        
         if not ext_counts:
             return "🧩 Все поддерживаемые"
         
@@ -690,28 +686,19 @@ class MainWindow(QMainWindow):
                 max_count = count
                 dominant_ext = ext
         
-        print(f"DEBUG: dominant_ext = {dominant_ext}, max_count = {max_count}")
-        
         # Если доминирующий формат составляет >25% от всех файлов, выбираем его
         if dominant_ext and max_count > 0 and total_files > 0:
             dominance_ratio = max_count / total_files
-            print(f"DEBUG: dominance_ratio = {dominance_ratio}")
             if dominance_ratio > 0.25:  # Более 25% файлов
-                result = self._extension_to_format(dominant_ext)
-                print(f"DEBUG: selected by dominance = {result}")
-                return result
+                return self._extension_to_format(dominant_ext)
         
         # Если нет доминирующего формата, используем приоритеты
         priority_order = ['.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.md', '.txt']
         for ext in priority_order:
             if ext in all_extensions:
-                result = self._extension_to_format(ext)
-                print(f"DEBUG: selected by priority = {result}")
-                return result
+                return self._extension_to_format(ext)
         
-        result = "🧩 Все поддерживаемые"
-        print(f"DEBUG: selected default = {result}")
-        return result
+        return "🧩 Все поддерживаемые"
     
     def _extension_to_format(self, ext: str) -> str:
         """Преобразует расширение в формат для комбобокса"""
@@ -809,34 +796,43 @@ class MainWindow(QMainWindow):
     
     def show_about(self):
         """Показывает окно 'О программе'"""
-        about_text = """
-        <h2>🧬 StrandsOfCode</h2>
-        <p><b>Версия:</b> 1.1.0</p>
-        <p><b>Конвертер кода в текстовый формат</b></p>
+        # Получаем информацию о приложении
+        app_info = get_app_info()
+        version = get_version_string()
+        
+        about_text = f"""
+        <h2>🧬 {app_info['name']}</h2>
+        <p><b>Версия:</b> {version}</p>
+        <p><b>Дата сборки:</b> {app_info['build_date']}</p>
+        <p><b>Автор:</b> {app_info['author']}</p>
+        <p><b>Email:</b> {app_info['email']}</p>
+        <p><b>Лицензия:</b> {app_info['license']}</p>
+        <p><b>{app_info['description']}</b></p>
         <br>
-        <p><b>Поддерживаемые языки:</b></p>
+        
+        <p><b>🔄 Поддерживаемые форматы:</b></p>
+        <p><i>Двунаправленная конвертация между всеми форматами:</i></p>
         <ul>
-            <li>🐍 Python (.py)</li>
-            <li>🟨 JavaScript (.js, .jsx)</li>
-            <li>🔷 TypeScript (.ts, .tsx)</li>
+            <li>🐍 <b>Python</b> (.py)</li>
+            <li>🟨 <b>JavaScript</b> (.js, .jsx)</li>
+            <li>🔷 <b>TypeScript</b> (.ts, .tsx)</li>
+            <li>🌐 <b>HTML</b> (.html)</li>
+            <li>📝 <b>Markdown</b> (.md)</li>
+            <li>📄 <b>Текст</b> (.txt)</li>
+        </ul>
+        <p><i>Всего 36 комбинаций конвертации (6 × 6)</i></p>
+        <br>
+        
+        <p><b>🚀 Ключевые возможности:</b></p>
+        <ul>
+            <li>� <b>Drag & Drop</b> - перетаскивание файлов и папок</li>
+            <li>🧠 <b>Умное определение формата</b> (90-95% точность)</li>
+            <li>💾 <b>Умная система сохранения</b></li>
+            <li>🎨 <b>Современный UI</b> с темами</li>
         </ul>
         <br>
-        <p><b>Форматы вывода:</b></p>
-        <ul>
-            <li>📄 Текстовые файлы (.txt)</li>
-            <li>📄 Объединенный файл</li>
-        </ul>
-        <br>
-        <p><b>Особенности:</b></p>
-        <ul>
-            <li>🎁 Современный интерфейс с тёмной/светлой темой</li>
-            <li>📁 Работа с файлами, папками и проектами</li>
-            <li>📊 Статистика и лог операций</li>
-            <li>⏰ История недавних файлов</li>
-            <li>📝 Метаданные и нумерация строк</li>
-        </ul>
-        <br>
-        <p><i>Прядём код в удобный текстовый формат с ❤️</i></p>
+        
+        <p><i>{app_info['copyright']}</i></p>
         """
         
         QMessageBox.about(self, "О программе", about_text)

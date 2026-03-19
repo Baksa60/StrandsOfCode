@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from ui.main_window import MainWindow
 from PyQt6.QtWidgets import QApplication
+from version import __version__
 
 
 def main():
@@ -13,7 +14,7 @@ def main():
     
     # Установка свойств приложения
     app.setApplicationName("StrandsOfCode")
-    app.setApplicationVersion("1.1.0")
+    app.setApplicationVersion(__version__)
     app.setOrganizationName("StrandsOfCode")
     
     window = MainWindow()
