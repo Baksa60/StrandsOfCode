@@ -568,19 +568,29 @@ class MainWindow(QMainWindow):
         # Определяем тип контента
         files = []
         folders = []
+        folder_extensions = set()  # Собираем расширения файлов в папках
         
         for path in paths:
             if path.is_file():
                 files.append(path)
             elif path.is_dir():
                 folders.append(path)
+                # Анализируем содержимое папки
+                folder_extensions.update(self._get_folder_extensions(path))
+        
+        # Определяем основной формат файлов
+        main_format = self._detect_main_format(files, folders, folder_extensions)
         
         # Автоматически выбираем тип источника
         if folders and not files:
-            # Только папки
+            # Только папки - проверяем на вложенность
             if len(folders) == 1:
-                self.source_type_combo.setCurrentText("📂 Папка")
+                if self._has_nested_folders(folders[0]):
+                    self.source_type_combo.setCurrentText("📂 Папка (рекурсивно)")
+                else:
+                    self.source_type_combo.setCurrentText("📂 Папка")
             else:
+                # Несколько папок - всегда рекурсивно
                 self.source_type_combo.setCurrentText("📂 Папка (рекурсивно)")
         elif files and not folders:
             # Только файлы
@@ -601,6 +611,9 @@ class MainWindow(QMainWindow):
         else:
             self.selected_label.setText(f'Выбрано {len(paths)} элементов')
         
+        # Устанавливаем правильный формат исходных файлов
+        self._set_source_format(main_format)
+        
         # Обновляем статистику
         self.update_statistics()
         
@@ -609,6 +622,128 @@ class MainWindow(QMainWindow):
         
         # Включаем кнопку конвертации
         self.convert_button.setEnabled(True)
+    
+    def _get_folder_extensions(self, folder_path: Path) -> set:
+        """Собирает все расширения файлов в папке рекурсивно"""
+        extensions = set()
+        try:
+            for file_path in folder_path.rglob('*'):
+                if file_path.is_file():
+                    ext = file_path.suffix.lower()
+                    if ext:
+                        extensions.add(ext)
+        except Exception:
+            pass
+        return extensions
+    
+    def _detect_main_format(self, files: list[Path], folders: list[Path], folder_extensions: set) -> str:
+        """Определяет основной формат файлов по доминированию"""
+        all_extensions = set()
+        
+        # Добавляем расширения прямых файлов
+        for file_path in files:
+            ext = file_path.suffix.lower()
+            if ext:
+                all_extensions.add(ext)
+        
+        # Добавляем расширения из папок
+        all_extensions.update(folder_extensions)
+        
+        # Определяем основной формат
+        if not all_extensions:
+            return "🧩 Все поддерживаемые"
+        
+        # Считаем реальное количество файлов каждого расширения
+        ext_counts = {}
+        total_files = 0
+        
+        # Считаем прямые файлы
+        for file_path in files:
+            ext = file_path.suffix.lower()
+            if ext:
+                ext_counts[ext] = ext_counts.get(ext, 0) + 1
+                total_files += 1
+        
+        # Считаем файлы в папках (правильный подсчет)
+        for folder_path in folders:
+            for file_path in folder_path.rglob('*'):
+                if file_path.is_file():
+                    ext = file_path.suffix.lower()
+                    if ext:
+                        ext_counts[ext] = ext_counts.get(ext, 0) + 1
+                        total_files += 1
+        
+        # Отладочная информация
+        print(f"DEBUG: all_extensions = {all_extensions}")
+        print(f"DEBUG: ext_counts = {ext_counts}")
+        print(f"DEBUG: total_files = {total_files}")
+        
+        if not ext_counts:
+            return "🧩 Все поддерживаемые"
+        
+        # Находим самый доминирующий формат
+        dominant_ext = None
+        max_count = 0
+        
+        for ext, count in ext_counts.items():
+            if count > max_count:
+                max_count = count
+                dominant_ext = ext
+        
+        print(f"DEBUG: dominant_ext = {dominant_ext}, max_count = {max_count}")
+        
+        # Если доминирующий формат составляет >25% от всех файлов, выбираем его
+        if dominant_ext and max_count > 0 and total_files > 0:
+            dominance_ratio = max_count / total_files
+            print(f"DEBUG: dominance_ratio = {dominance_ratio}")
+            if dominance_ratio > 0.25:  # Более 25% файлов
+                result = self._extension_to_format(dominant_ext)
+                print(f"DEBUG: selected by dominance = {result}")
+                return result
+        
+        # Если нет доминирующего формата, используем приоритеты
+        priority_order = ['.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.md', '.txt']
+        for ext in priority_order:
+            if ext in all_extensions:
+                result = self._extension_to_format(ext)
+                print(f"DEBUG: selected by priority = {result}")
+                return result
+        
+        result = "🧩 Все поддерживаемые"
+        print(f"DEBUG: selected default = {result}")
+        return result
+    
+    def _extension_to_format(self, ext: str) -> str:
+        """Преобразует расширение в формат для комбобокса"""
+        format_map = {
+            '.py': '🐍 Python (.py)',
+            '.js': '🟨 JavaScript (.js)',
+            '.jsx': '🟨 JavaScript (.js)',
+            '.ts': '🔷 TypeScript (.ts)',
+            '.tsx': '🔷 TypeScript (.ts)',
+            '.txt': '📄 Текст (.txt)',
+            '.md': '📝 Markdown (.md)',
+            '.html': '🌐 HTML (.html)'
+        }
+        return format_map.get(ext.lower(), '🧩 Все поддерживаемые')
+    
+    def _has_nested_folders(self, folder_path: Path) -> bool:
+        """Проверяет есть ли в папке вложенные папки"""
+        try:
+            for item in folder_path.iterdir():
+                if item.is_dir():
+                    return True
+        except Exception:
+            pass
+        return False
+    
+    def _set_source_format(self, format_text: str):
+        """Устанавливает формат исходных файлов"""
+        # Ищем формат в комбобоксе
+        for i in range(self.source_format_combo.count()):
+            if format_text in self.source_format_combo.itemText(i):
+                self.source_format_combo.setCurrentIndex(i)
+                return
     
     def change_theme(self, theme_text):
         """Изменяет тему приложения"""
