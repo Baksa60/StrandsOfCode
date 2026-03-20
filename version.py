@@ -2,12 +2,12 @@
 Версия и метаданные продукта StrandsOfCode
 """
 
-__version__ = "1.3.0"
-__version_name__ = "Drag & Drop Edition"
-__build_date__ = "2026-03-19"
+__version__ = "1.4.0"
+__version_name__ = "Clean Code Edition"
+__build_date__ = "2026-03-21"
 __author__ = "Baksa60"
 __email__ = "Baksa60@yandex.ru"
-__description__ = "Профессиональный конвертер кода с поддержкой Drag & Drop"
+__description__ = "Профессиональный конвертер кода с улучшенной архитектурой"
 __copyright__ = f"© 2026 {__author__}"
 __license__ = "MIT"
 

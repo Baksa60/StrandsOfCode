@@ -1,28 +1,32 @@
 StrandsOfCode/
-│
-├─ main.py                     # Точка входа. Запуск приложения и инициализация PyQt6
-├─ version.py                  # Версия и метаданные продукта
+├─ main.py                     # Точка входа. Запуск приложения, настройка логгера, инициализация PyQt6
+├─ version.py                  # Версия и метаданные продукта (v1.4.0 "Clean Code Edition")
 │
 ├─ ui/
-│   ├─ main_window.py          # Главное окно приложения (Drag & Drop, выбор файлов, настройки)
+│   ├─ main_window.py          # Главное окно приложения (1697 строк, -33% от v1.3)
+│   │                          # Drag & Drop, выбор файлов, настройки, UI логика
+│   ├─ settings_manager.py    # Управление настройками приложения (вынесен из main_window.py)
+│   ├─ history_manager.py      # Управление историей конвертаций (вынесен из main_window.py)
 │   ├─ dialogs.py              # Дополнительные диалоги (выбор файлов, сообщений, прогресса)
 │   └─ styles.py              # Стили тем (темная/светлая тема и визуальные эффекты)
 │
 ├─ controllers/
 │   └─ convert_controller.py   # Контроллер: связывает UI и бизнес-логику
-│                               # принимает параметры из интерфейса и запускает обработку
+│                               # Унифицирует результаты сервисов через setdefault()
+│                               # Нормализует ConversionResult и dict форматы
 │
 ├─ services/
-│   ├─ file_collector.py       # Сервис поиска файлов: файл / несколько / папка / рекурсивно
+│   ├─ file_collector.py       # Сервис поиска файлов: универсальный collect_project_files()
 │   ├─ converter_service.py    # Базовый сервис конвертации: читает исходники и создаёт текст
 │   ├─ html_converter_service.py    # Конвертация в HTML с CSS стилями и подсветкой синтаксиса
 │   ├─ markdown_converter_service.py # Конвертация в Markdown формат
 │   ├─ json_converter_service.py     # Конвертация в JSON формат
 │   ├─ text_to_text_converter.py     # Универсальный конвертер текста
 │   ├─ base_reverse_converter.py     # Базовый класс для обратной конвертации
+│   │                              # Содержит _get_extension_for_language()
 │   ├─ code_to_code_converter.py     # Конвертер между языками программирования
 │   ├─ txt_to_code_converter.py      # Восстановление кода из TXT
-│   ├─ html_to_code_converter.py     # Восстановление кода из HTML
+│   ├─ html_to_code_converter.py     # Восстановление кода из HTML (баг исправлен)
 │   ├─ json_to_code_converter.py     # Восстановление кода из JSON
 │   └─ markdown_to_code_converter.py # Восстановление кода из Markdown
 │
@@ -31,12 +35,46 @@ StrandsOfCode/
 │   └─ conversion_result.py    # Модель результата конвертации (статистика, файлы, метаданные)
 │
 ├─ utils/
+│   ├─ tree_utils.py           # Утилиты построения дерева проекта (build_project_tree)
 │   ├─ file_utils.py           # Низкоуровневые функции работы с файлами (чтение, запись, фильтрация)
 │   └─ cancellation.py         # Утилиты отмены операций
 │
 ├─ config.py                   # Глобальные настройки программы (расширения, маркеры проектов, фильтры)
 ├─ requirements.txt            # Зависимости проекта (PyQt6, chardet)
-├─ ROADMAP.md                  # План развития проекта
+├─ ROADMAP.md                  # План развития проекта (v1.4.0 завершен)
 ├─ CHANGELOG.md                # История изменений
 ├─ README.md                   # Документация проекта
+├─ ARCHITECTURE_CONTRACT.md    # Архитектурный контракт - единственный источник правды
 └── LICENSE                    # Лицензия MIT
+
+## 🏗️ Архитектурные улучшения v1.4.0
+
+### Устранено дублирование:
+- ✅ **utils/tree_utils.py** - единая build_project_tree (удалено 4 копии)
+- ✅ **BaseReverseConverter** - _get_extension_for_language (удалено 4 копии)
+- ✅ **FileCollector** - универсальный collect_project_files (объединены 2 метода)
+
+### Улучшена модульность:
+- ✅ **ui/settings_manager.py** - вынесен из main_window.py
+- ✅ **ui/history_manager.py** - вынесен из main_window.py
+- ✅ **main.py** - добавлена настройка логгера
+
+### Улучшено качество кода:
+- ✅ **Импорты** - все вынесены из методов наверх
+- ✅ **Логирование** - print() заменены на logging.warning()
+- ✅ **Формат результата** - унифицирован через контроллер
+
+### Исправлены баги:
+- ✅ **CodeHTMLParser** - исправлен handle_starttag для HTML→код конвертации
+- ✅ **Размер main_window.py** - сокращен на 33% (2568→1697 строк)
+
+## 📋 Архитектурный контракт
+
+**Основной документ:** [ARCHITECTURE_CONTRACT.md](ARCHITECTURE_CONTRACT.md)
+
+**Ключевые принципы:**
+- 🎯 **UI → Controller → Services → Utils** - строгая иерархия
+- 🧩 **Services возвращают dict** - контроллер нормализует результат
+- ❌ **Запрещено дублирование** - старый код удаляется
+- 📋 **Logging вместо print** - системное логирование
+- 🏗️ **Разделение ответственности** - каждый слой имеет свою зону ответственности
