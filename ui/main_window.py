@@ -230,92 +230,6 @@ class MainWindow(QMainWindow):
 
         
 
-        # Комбо-панель с информацией и недавними файлами
-
-        combo_panel = QWidget()
-
-        combo_layout = QHBoxLayout(combo_panel)
-
-        combo_layout.setSpacing(20)
-
-        
-
-        # Левая часть - статистика
-
-        stats_group = QGroupBox("📊 Информация о проекте")
-
-        stats_layout = QVBoxLayout()
-
-        
-
-        self.files_count_label = QLabel("🔧 Файлов: 0")
-
-        self.folders_count_label = QLabel("📁 Папок: 0")
-
-        self.size_count_label = QLabel("📏 Размер: 0 KB")
-
-        self.last_action_label = QLabel("⏰ Последнее действие: --")
-
-        
-
-        stats_layout.addWidget(self.files_count_label)
-
-        stats_layout.addWidget(self.folders_count_label)
-
-        stats_layout.addWidget(self.size_count_label)
-
-        stats_layout.addWidget(self.last_action_label)
-
-        stats_group.setLayout(stats_layout)
-
-        
-
-        # Правая часть - недавние файлы
-
-        recent_group = QGroupBox("⏰ Недавние файлы")
-
-        recent_layout = QVBoxLayout()
-
-        
-
-        self.recent_files_widget = QWidget()
-
-        self.recent_files_layout = QVBoxLayout(self.recent_files_widget)
-
-        
-
-        clear_button = QPushButton("🗑️ Очистить историю")
-
-        clear_button.setMaximumHeight(30)
-
-        clear_button.clicked.connect(self.clear_recent_files)
-
-        
-
-        recent_layout.addWidget(self.recent_files_widget)
-
-        recent_layout.addWidget(clear_button)
-
-        recent_group.setLayout(recent_layout)
-
-        
-
-        combo_layout.addWidget(stats_group)
-
-        combo_layout.addWidget(recent_group)
-
-        
-
-        main_layout.addWidget(combo_panel)
-
-        
-
-        # Создаем сплиттер для лучшей компоновки
-
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        
-
         # Левая панель - настройки
 
         left_panel = QWidget()
@@ -323,7 +237,6 @@ class MainWindow(QMainWindow):
         left_layout = QVBoxLayout(left_panel)
 
         left_layout.setSpacing(15)
-
         
 
         # Группа выбора источника
@@ -437,6 +350,36 @@ class MainWindow(QMainWindow):
         source_layout.addLayout(select_layout)
 
         source_group.setLayout(source_layout)
+
+        left_layout.addWidget(source_group)
+
+        
+
+        # Группа информации о выбранных файлах
+
+        info_group = QGroupBox("📊 Информация о выбранных файлах")
+
+        info_layout = QVBoxLayout()
+
+        
+
+        self.files_count_label = QLabel("🔧 Файлов: 0")
+
+        self.folders_count_label = QLabel("📁 Папок: 0")
+
+        self.size_count_label = QLabel("📏 Размер: 0 KB")
+
+        
+
+        info_layout.addWidget(self.files_count_label)
+
+        info_layout.addWidget(self.folders_count_label)
+
+        info_layout.addWidget(self.size_count_label)
+
+        info_group.setLayout(info_layout)
+
+        left_layout.addWidget(info_group)
 
         
 
@@ -586,6 +529,8 @@ class MainWindow(QMainWindow):
 
         output_group.setLayout(output_layout)
 
+        left_layout.addWidget(output_group)
+
         
 
         # Кнопка запуска
@@ -614,10 +559,6 @@ class MainWindow(QMainWindow):
 
         
 
-        left_layout.addWidget(source_group)
-
-        left_layout.addWidget(output_group)
-
         left_layout.addWidget(self.convert_button)
 
         left_layout.addWidget(self.cancel_button)
@@ -626,7 +567,17 @@ class MainWindow(QMainWindow):
 
         
 
-        # Правая панель - лог и прогресс
+        # Создаем сплиттер для разделения 70/30
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        splitter.addWidget(left_panel)
+
+        splitter.setSizes([700, 300])  # 70% левая, 30% правая
+
+        
+
+        # Правая панель - лог и история
 
         right_panel = QWidget()
 
@@ -680,6 +631,14 @@ class MainWindow(QMainWindow):
 
         clear_log_layout.addWidget(self.clear_log_button)
 
+        # Кнопка истории конвертаций
+
+        self.history_button = QPushButton("📜 История")
+
+        self.history_button.clicked.connect(self.show_conversion_history)
+
+        clear_log_layout.addWidget(self.history_button)
+
         clear_log_layout.addStretch()
 
         log_layout.addLayout(clear_log_layout)
@@ -696,19 +655,35 @@ class MainWindow(QMainWindow):
 
         
 
-        # Добавляем панели в сплиттер
-
-        splitter.addWidget(left_panel)
+        # Добавляем панели в сплиттер (уже создан выше)
 
         splitter.addWidget(right_panel)
 
-        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(0, 7)  # 70% левая панель
 
-        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(1, 3)  # 30% правая панель
 
         main_layout.addWidget(splitter)
 
     
+
+    def show_conversion_history(self):
+        """Показывает историю конвертаций"""
+        # Заглушка - будет реализовано в Задаче 3
+        self.log_action("История конвертаций (в разработке)")
+        QMessageBox.information(self, "История", "Функция истории конвертаций будет реализована в следующей версии.")
+
+    def log_action(self, action: str):
+        """Добавляет сообщение о действии в лог"""
+        self.log_message(f"⏰ {action}")
+
+    def log_message(self, message: str):
+        """Добавляет сообщение в лог с авто-прокруткой"""
+        self.log_text.append(message)
+        # Авто-прокрутка к последнему сообщению
+        cursor = self.log_text.textCursor()
+        cursor.movePosition(cursor.MoveOperation.End)
+        self.log_text.setTextCursor(cursor)
 
     def load_settings(self):
 
@@ -739,6 +714,12 @@ class MainWindow(QMainWindow):
                 if self.last_save_folder:
 
                     self.save_path_edit.setText(self.last_save_folder)
+                
+
+                # Загружаем недавние файлы
+                recent_files_data = settings.get('recent_files', [])
+                self.recent_files = [Path(path) for path in recent_files_data]
+                # self.refresh_recent_files_display()
 
                 
 
@@ -802,7 +783,10 @@ class MainWindow(QMainWindow):
 
                 'last_source_format': self.source_format_combo.currentText(),
 
-                'last_output_format': self.output_format_combo.currentText()
+                'last_output_format': self.output_format_combo.currentText(),
+                
+                # Сохраняем недавние файлы
+                'recent_files': [str(path) for path in self.recent_files]
 
             }
 
@@ -1053,8 +1037,7 @@ class MainWindow(QMainWindow):
         """Очищает лог операций"""
 
         self.log_text.clear()
-
-        self.last_action_label.setText("⏰ Последнее действие: Лог очищен")
+        self.log_action("Лог очищен")
 
     
 
@@ -1256,13 +1239,17 @@ class MainWindow(QMainWindow):
 
         # Обновляем последнее действие
 
-        self.last_action_label.setText(f'⏰ Последнее действие: Перетащено {len(paths)} элементов')
+        self.log_action(f"Перетащено {len(paths)} элементов")
 
         
 
         # Включаем кнопку конвертации
 
         self.convert_button.setEnabled(True)
+        
+        # Добавляем первый путь в недавние файлы
+        # if paths:
+        #     self.add_recent_file(paths[0])
 
     
 
@@ -1732,7 +1719,10 @@ class MainWindow(QMainWindow):
 
                 self.update_statistics()
 
-                self.last_action_label.setText("⏰ Последнее действие: Выбран файл")
+                self.log_action("Выбран файл")
+                
+                # Добавляем в недавние файлы
+                # self.add_recent_file(Path(file_path))
 
                 
 
@@ -1754,7 +1744,11 @@ class MainWindow(QMainWindow):
 
                 self.update_statistics()
 
-                self.last_action_label.setText("⏰ Последнее действие: Выбрано несколько файлов")
+                self.log_action("Выбрано несколько файлов")
+                
+                # Добавляем первый файл в недавние (как представитель группы)
+                # if file_paths:
+                #     self.add_recent_file(Path(file_paths[0]))
 
                 
 
@@ -1772,13 +1766,16 @@ class MainWindow(QMainWindow):
 
                 self.update_statistics()
 
-                self.last_action_label.setText("⏰ Последнее действие: Выбрана папка")
+                self.log_action("Выбрана папка")
+                
+                # Добавляем папку в недавние файлы
+                # self.add_recent_file(Path(folder_path))
 
         
 
         # Обновляем последнее действие
 
-        self.last_action_label.setText("⏰ Последнее действие: Выбраны файлы/папки")
+        self.log_action("Выбраны файлы/папки")
 
     
 
@@ -1915,8 +1912,7 @@ class MainWindow(QMainWindow):
         self.recent_files = self.recent_files[:5]
 
         # Обновляем отображение
-
-        self.refresh_recent_files_display()
+        # self.refresh_recent_files_display()
 
     
 
@@ -1986,7 +1982,7 @@ class MainWindow(QMainWindow):
 
         # Обновляем последнее действие
 
-        self.last_action_label.setText("⏰ Последнее действие: Выбран из недавних")
+        self.log_action("Выбран из недавних")
 
     
 
@@ -1994,11 +1990,14 @@ class MainWindow(QMainWindow):
 
         """Очищает историю недавних файлов"""
 
-        self.recent_files.clear()
+        # self.recent_files.clear()
 
-        self.refresh_recent_files_display()
+        # self.refresh_recent_files_display()
 
-        self.last_action_label.setText("⏰ Последнее действие: История очищена")
+        self.log_action("История очищена")
+        
+        # Сохраняем настройки
+        # self.save_settings()
 
         
 
@@ -2202,15 +2201,15 @@ class MainWindow(QMainWindow):
 
         # Информируем пользователя о месте сохранения
 
-        self.log_text.append(f"📂 Папка сохранения: {base_folder}")
+        self.log_message(f"📂 Папка сохранения: {base_folder}")
 
         if options_filename:
 
-            self.log_text.append(f"📝 Имя файла: {options_filename}")
+            self.log_message(f"📝 Имя файла: {options_filename}")
 
-            self.log_text.append(f"📂 Полный путь: {base_folder / options_filename}")
+            self.log_message(f"📂 Полный путь: {base_folder / options_filename}")
 
-        self.log_text.append("🔄 Начинаю конвертацию...")
+        self.log_message("🔄 Начинаю конвертацию...")
 
         
 
@@ -2220,11 +2219,11 @@ class MainWindow(QMainWindow):
 
             base_folder.mkdir(parents=True, exist_ok=True)
 
-            self.log_text.append(f"✅ Папка доступна: {base_folder}")
+            self.log_message(f"✅ Папка доступна: {base_folder}")
 
         except Exception as e:
 
-            self.log_text.append(f"❌ Ошибка доступа к папке: {e}")
+            self.log_message(f"❌ Ошибка доступа к папке: {e}")
 
             return
 
@@ -2258,13 +2257,13 @@ class MainWindow(QMainWindow):
 
         # Отладочная информация
 
-        self.log_text.append(f"🔍 Тип источника: {source_type}")
+        self.log_message(f"🔍 Тип источника: {source_type}")
 
-        self.log_text.append(f"📁 Пути: {self.selected_paths}")
+        self.log_message(f"📁 Пути: {self.selected_paths}")
 
-        self.log_text.append(f"📤 Формат вывода: {output_format}")
+        self.log_message(f"📤 Формат вывода: {output_format}")
 
-        self.log_text.append(f"📂 Папка вывода: {output_folder}")
+        self.log_message(f"📂 Папка вывода: {output_folder}")
 
         
 
@@ -2300,7 +2299,7 @@ class MainWindow(QMainWindow):
 
         if self.worker and self.worker.isRunning():
 
-            self.log_text.append("⛔ Запрошена отмена...")
+            self.log_message("⛔ Запрошена отмена...")
 
             self.worker.requestInterruption()
 
@@ -2330,21 +2329,21 @@ class MainWindow(QMainWindow):
 
                 output_file = result['combined_file']['output_path']
 
-                self.log_text.append(f"✅ Готово! Файл сохранен: {output_file}")
+                self.log_message(f"✅ Готово! Файл сохранен: {output_file}")
 
             elif 'output_files' in result and result['output_files']:
 
                 files = result['output_files']
 
-                self.log_text.append(f"✅ Готово! Сохранено файлов: {len(files)}")
+                self.log_message(f"✅ Готово! Сохранено файлов: {len(files)}")
 
                 for file_path in files[:5]:  # Показываем первые 5 файлов
 
-                    self.log_text.append(f"📄 {file_path}")
+                    self.log_message(f"📄 {file_path}")
 
                 if len(files) > 5:
 
-                    self.log_text.append(f"... и еще {len(files) - 5} файлов")
+                    self.log_message(f"... и еще {len(files) - 5} файлов")
 
             
 
@@ -2354,7 +2353,7 @@ class MainWindow(QMainWindow):
 
                 duration = result['duration']
 
-                self.log_text.append(f"⏱️ Время выполнения: {duration.total_seconds():.2f} сек")
+                self.log_message(f"⏱️ Время выполнения: {duration.total_seconds():.2f} сек")
 
             
 
@@ -2362,7 +2361,7 @@ class MainWindow(QMainWindow):
 
                 size_mb = result['total_size'] / (1024 * 1024)
 
-                self.log_text.append(f"📊 Общий размер: {size_mb:.2f} МБ")
+                self.log_message(f"📊 Общий размер: {size_mb:.2f} МБ")
 
             
 
@@ -2390,15 +2389,15 @@ class MainWindow(QMainWindow):
 
                         subprocess.run(["xdg-open", str(folder)])
 
-                    self.log_text.append(f"📂 Папка с результатами открыта")
+                    self.log_message(f"📂 Папка с результатами открыта")
 
                 except:
 
-                    self.log_text.append(f"📂 Папка с результатами: {folder}")
+                    self.log_message(f"📂 Папка с результатами: {folder}")
 
             
 
-            self.last_action_label.setText("✅ Конвертация завершена успешно!")
+            self.log_action("Конвертация завершена успешно!")
 
             
 
@@ -2406,9 +2405,8 @@ class MainWindow(QMainWindow):
 
             if result.get('cancelled'):
 
-                self.log_text.append("⛔ Конвертация отменена пользователем")
-
-                self.last_action_label.setText("⛔ Конвертация отменена")
+                self.log_message("⛔ Конвертация отменена пользователем")
+                self.log_action("Конвертация отменена")
 
                 return
 
@@ -2418,9 +2416,8 @@ class MainWindow(QMainWindow):
 
             error_msg = result.get('error', 'Неизвестная ошибка')
 
-            self.log_text.append(f"❌ Ошибка: {error_msg}")
-
-            self.last_action_label.setText("❌ Конвертация завершилась с ошибкой")
+            self.log_message(f"❌ Ошибка: {error_msg}")
+            self.log_action("Конвертация завершилась с ошибкой")
 
             QMessageBox.critical(self, "Ошибка", f"Конвертация завершилась с ошибкой:\n{error_msg}")
 
