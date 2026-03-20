@@ -41,22 +41,22 @@
 **Цель:** устранить накопленный технический долг. Без новых фич — только стабильность и чистота.
 
 ### Критические баги
-- [ ] **Исправить `CodeHTMLParser`** — `attrs` это список кортежей `(name, value)`, не словарей. Обратная конвертация HTML→код сломана. Заменить на `dict(attrs)`.
+- [x] **Исправить `CodeHTMLParser`** — `attrs` это список кортежей `(name, value)`, не словарей. Обратная конвертация HTML→код сломана. Заменить на `dict(attrs)`.
 
 ### Дублирование кода (обязательно)
-- [ ] Создать `utils/tree_utils.py` → вынести туда `build_project_tree(files, base_folder)`. Удалить копии из `converter_service.py`, `html_converter_service.py`, `markdown_converter_service.py`, `code_to_code_converter.py`.
-- [ ] Вынести `_get_extension_for_language` в `BaseReverseConverter`. Удалить дубли из `TxtToCodeConverter`, `MarkdownToCodeConverter`, `HtmlToCodeConverter`, `JsonToCodeConverter`.
-- [ ] Объединить `collect_python_project` и `collect_js_project` в `FileCollector` — они идентичны.
+- [x] Создать `utils/tree_utils.py` → вынести туда `build_project_tree(files, base_folder)`. Удалить копии из `converter_service.py`, `html_converter_service.py`, `markdown_converter_service.py`, `code_to_code_converter.py`.
+- [x] Вынести `_get_extension_for_language` в `BaseReverseConverter`. Удалить дубли из `TxtToCodeConverter`, `MarkdownToCodeConverter`, `HtmlToCodeConverter`, `JsonToCodeConverter`.
+- [x] Объединить `collect_python_project` и `collect_js_project` в `FileCollector` — они идентичны.
 
 ### Качество кода
-- [ ] Перенести все `import json`, `import subprocess`, `import platform`, `from pathlib import Path`, `from datetime import datetime` из тел методов `main_window.py` в начало файла.
+- [x] Перенести все `import json`, `import subprocess`, `import platform`, `from pathlib import Path`, `from datetime import datetime` из тел методов `main_window.py` в начало файла.
 - [ ] Заменить `print(f"Ошибка...")` на `logging.warning(...)` / `logging.error(...)` во всех файлах. Добавить базовую конфигурацию логгера в `main.py`.
 - [ ] Унифицировать формат результата: `ConverterService` возвращает `ConversionResult`, остальные — `dict`. Контроллер уже нормализует это, но стоит зафиксировать стандарт в `models/conversion_result.py` и привести хотя бы ключи к единому виду.
 
 ### Чистка `main_window.py`
-- [ ] Вынести `SettingsManager` — методы `load_settings()`, `save_settings()` — в `ui/settings_manager.py`.
-- [ ] Вынести `HistoryManager` — методы `load_history()`, `save_history()`, `add_conversion_to_history()`, `_save_conversion_to_history()` — в `ui/history_manager.py`.
-- [ ] После выноса — убедиться что `main_window.py` < 1500 строк.
+- [x] Вынести `SettingsManager` — методы `load_settings()`, `save_settings()` — в `ui/settings_manager.py`.
+- [x] Вынести `HistoryManager` — методы `load_history()`, `save_history()`, `add_conversion_to_history()`, `_save_conversion_to_history()` — в `ui/history_manager.py`.
+- [x] После выноса — убедиться что `main_window.py` < 1500 строк. (Фактический результат: 1697 строк, сокращение с 2568 = -33%)
 
 **Критерий готовности v1.4:** программа запускается, все конвертации работают, дублированный код удалён, баг с HTML-парсером исправлен.
 

@@ -1,4 +1,6 @@
 import sys
+import subprocess
+import platform
 
 from pathlib import Path
 
@@ -59,8 +61,6 @@ class MainWindow(QMainWindow):
         self.is_drag_active = False  # Состояние drag & drop
 
         self.worker = None
-
-        self.conversion_history = []  # История конвертаций
 
         self.init_ui()
 
@@ -433,8 +433,6 @@ class MainWindow(QMainWindow):
     def browse_save_location(self):
         """Открывает диалог выбора папки сохранения"""
 
-        from pathlib import Path
-
         
 
         # Предлагаем последнюю папку или Documents по умолчанию
@@ -467,170 +465,31 @@ class MainWindow(QMainWindow):
 
             self.save_settings()
 
-    
+    # Новая функция для проверки наличия сохраненной папки
+    def check_save_folder(self):
+        if not self.save_path_edit.text():
+            QMessageBox.warning(self, "Внимание", "Сначала выберите папку для сохранения")
+            return False
+        return True
 
     def generate_filename(self):
-
         """Генерирует уникальное имя файла"""
-
-        from datetime import datetime
-
-        from pathlib import Path
-
-        
-
         if not self.save_path_edit.text():
-
             QMessageBox.warning(self, "Внимание", "Сначала выберите папку для сохранения")
-
             return
 
+        output_format = self._determine_output_format(self.output_format_combo.currentText())
+        source_label = self.history_manager.get_current_source_format(self.source_format_combo.currentText())
+        target_label = output_format.upper()
+        ext = self._determine_extension(output_format)
         
-
-        # Определяем расширение
-
-        format_text = self.output_format_combo.currentText()
-
-        if "Текст" in format_text:
-
-            ext = ".txt"
-
-        elif "Markdown" in format_text:
-
-            ext = ".md"
-
-        elif "HTML" in format_text:
-
-            ext = ".html"
-
-        elif "JSON" in format_text:
-
-            ext = ".json"
-
-        elif "Python" in format_text:
-
-            ext = ".py"
-
-        elif "JavaScript" in format_text:
-
-            ext = ".js"
-
-        elif "TypeScript" in format_text:
-
-            ext = ".ts"
-
-        else:
-
-            ext = ".txt"
-
-        
-
-        # Генерируем базовое имя
-
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_name = f"{source_label}_to_{target_label}_{timestamp}"
+        self.filename_edit.setText(self.get_unique_filename(base_name, ext))
 
         
 
-        # Правильно извлекаем исходный формат
-
-        source_text = self.source_format_combo.currentText()
-
-        if "Python" in source_text:
-
-            source_format = "Python"
-
-        elif "JavaScript" in source_text:
-
-            source_format = "JavaScript"
-
-        elif "TypeScript" in source_text:
-
-            source_format = "TypeScript"
-
-        elif "Текст" in source_text:
-
-            source_format = "Text"
-
-        elif "Markdown" in source_text:
-
-            source_format = "Markdown"
-
-        elif "HTML" in source_text:
-
-            source_format = "HTML"
-
-        elif "JSON" in source_text:
-
-            source_format = "JSON"
-
-        else:
-
-            source_format = "Unknown"
-
         
-
-        # Правильно извлекаем целевой формат
-
-        output_format_text = self.output_format_combo.currentText()
-
-        if "Текст" in output_format_text:
-
-            target_format = "TXT"
-
-        elif "Markdown" in output_format_text:
-
-            target_format = "MD"
-
-        elif "HTML" in output_format_text:
-
-            target_format = "HTML"
-
-        elif "JSON" in output_format_text:
-
-            target_format = "JSON"
-
-        elif "Python" in output_format_text:
-
-            target_format = "Python"
-
-        elif "JavaScript" in output_format_text:
-
-            target_format = "JS"
-
-        elif "TypeScript" in output_format_text:
-
-            target_format = "TS"
-
-        else:
-
-            target_format = "Unknown"
-
-        
-
-        base_name = f"{source_format}_to_{target_format}_{timestamp}"
-
-        
-
-        # Проверяем уникальность имени
-
-        save_folder = Path(self.save_path_edit.text())
-
-        counter = 1
-
-        final_name = base_name
-
-        
-
-        while (save_folder / (final_name + ext)).exists():
-
-            final_name = f"{base_name}_{counter}"
-
-            counter += 1
-
-        
-
-        self.filename_edit.setText(final_name)
-
     
 
     def get_unique_filename(self, base_name: str, extension: str) -> str:
@@ -872,10 +731,7 @@ class MainWindow(QMainWindow):
 
         self.convert_button.setEnabled(True)
         
-        # Добавляем первый путь в недавние файлы
-        # if paths:
-        #     self.add_recent_file(paths[0])
-
+        
     
 
     def _get_folder_extensions(self, folder_path: Path) -> set:
@@ -1346,9 +1202,7 @@ class MainWindow(QMainWindow):
 
                 self.log_action("Выбран файл")
                 
-                # Добавляем в недавние файлы
-                # self.add_recent_file(Path(file_path))
-
+                
                 
 
         elif "Несколько файлов" in source_type:
@@ -1371,10 +1225,7 @@ class MainWindow(QMainWindow):
 
                 self.log_action("Выбрано несколько файлов")
                 
-                # Добавляем первый файл в недавние (как представитель группы)
-                # if file_paths:
-                #     self.add_recent_file(Path(file_paths[0]))
-
+                
                 
 
         elif "Папка" in source_type:
@@ -1393,9 +1244,7 @@ class MainWindow(QMainWindow):
 
                 self.log_action("Выбрана папка")
                 
-                # Добавляем папку в недавние файлы
-                # self.add_recent_file(Path(folder_path))
-
+                
         
 
         # Обновляем последнее действие
@@ -1520,110 +1369,7 @@ class MainWindow(QMainWindow):
 
     
 
-    def add_recent_file(self, path: Path):
-
-        """Добавляет файл в недавние"""
-
-        # Удаляем дубликаты
-
-        self.recent_files = [p for p in self.recent_files if str(p) != str(path)]
-
-        # Добавляем в начало
-
-        self.recent_files.insert(0, path)
-
-        # Ограничиваем список до 5 элементов
-
-        self.recent_files = self.recent_files[:5]
-
-        # Обновляем отображение
-        # self.refresh_recent_files_display()
-
     
-
-    def refresh_recent_files_display(self):
-
-        """Обновляет отображение недавних файлов"""
-
-        # Очищаем текущие виджеты
-
-        for i in reversed(range(self.recent_files_layout.count())):
-
-            child = self.recent_files_layout.itemAt(i).widget()
-
-            if child:
-
-                child.setParent(None)
-
-        
-
-        # Добавляем новые
-
-        for file_path in self.recent_files:
-
-            if file_path.is_file():
-
-                button = QPushButton(f"📄 {file_path.name}")
-
-                button.setToolTip(str(file_path))
-
-                button.clicked.connect(lambda checked, p=file_path: self.select_recent_file(p))
-
-                button.setMaximumHeight(25)
-
-                self.recent_files_layout.addWidget(button)
-
-            else:
-
-                button = QPushButton(f"📂 {file_path.name}")
-
-                button.setToolTip(str(file_path))
-
-                button.clicked.connect(lambda checked, p=file_path: self.select_recent_file(p))
-
-                button.setMaximumHeight(25)
-
-                self.recent_files_layout.addWidget(button)
-
-    
-
-    def select_recent_file(self, path: Path):
-
-        """Выбирает недавний файл/папку"""
-
-        self.selected_paths = [path]
-
-        self.selected_label.setText(str(path))
-
-        self.convert_button.setEnabled(True)
-
-        
-
-        # Обновляем статистику
-
-        self.update_statistics()
-
-        
-
-        # Обновляем последнее действие
-
-        self.log_action("Выбран из недавних")
-
-    
-
-    def clear_recent_files(self):
-
-        """Очищает историю недавних файлов"""
-
-        # self.recent_files.clear()
-
-        # self.refresh_recent_files_display()
-
-        self.log_action("История очищена")
-        
-        # Сохраняем настройки
-        # self.save_settings()
-
         
 
     def start_conversion(self):
@@ -1863,10 +1609,6 @@ class MainWindow(QMainWindow):
 
             if 'output_folder' in result:
 
-                import subprocess
-
-                import platform
-
                 folder = result['output_folder']
 
                 try:
@@ -1918,37 +1660,31 @@ class MainWindow(QMainWindow):
     def show_conversion_history(self):
         """Показывает историю конвертаций"""
         dialog = HistoryDialog(self)
-        # Передаем реальные данные истории
-        dialog.history_data = self.conversion_history
+        dialog.history_data = self.history_manager.history
         dialog.update_table()
         dialog.update_statistics()
         dialog.exec()
 
     def load_history(self):
         """Загружает историю конвертаций из файла"""
-        self.conversion_history = self.history_manager.load()
+        self.history_manager.load()
 
     def add_conversion_to_history(self, conversion_data):
         """Добавляет запись о конвертации в историю"""
-        self.history_manager.history = self.conversion_history
         self.history_manager.add_entry(conversion_data)
-        self.conversion_history = self.history_manager.history
 
     def save_history(self):
         """Сохраняет историю конвертаций в файл"""
-        self.history_manager.history = self.conversion_history
         self.history_manager.save()
 
     def _save_conversion_to_history(self, result):
         """Сохраняет результат конвертации в историю"""
-        self.history_manager.history = self.conversion_history
         self.history_manager.save_conversion_result(
             result=result,
             selected_paths=self.selected_paths,
             source_format_text=self.source_format_combo.currentText(),
             output_format_text=self.output_format_combo.currentText(),
         )
-        self.conversion_history = self.history_manager.history
 
 if __name__ == "__main__":
 
