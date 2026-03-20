@@ -59,6 +59,21 @@ class BaseReverseConverter(ABC):
         scores = {'python': python_score, 'javascript': js_score, 'typescript': ts_score}
         return max(scores, key=scores.get)
     
+    def _get_extension_for_language(self, language: str) -> str:
+        """
+        Возвращает расширение файла для языка программирования
+        """
+        extension_map = {
+            'python': '.py',
+            'javascript': '.js',
+            'typescript': '.ts',
+            'jsx': '.jsx',
+            'tsx': '.tsx',
+            'text': '.txt'
+        }
+        
+        return extension_map.get(language.lower(), '.txt')
+    
     def parse_file_structure(self, content: str) -> Dict[str, Any]:
         """
         Парсит структуру файлов из текста

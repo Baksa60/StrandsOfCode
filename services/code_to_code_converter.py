@@ -306,7 +306,10 @@ class CodeToCodeConverter:
         ]
         
         # Добавляем дерево проекта
-        tree_lines = self._create_project_tree(files)
+        from utils.tree_utils import build_project_tree
+        base_folder = files[0].parent if files else Path.cwd()
+        tree_content = build_project_tree(files, base_folder)
+        tree_lines = tree_content.split('\n') if tree_content else ["Пустой проект"]
         content_lines.extend(tree_lines)
         content_lines.extend(["", "## 📄 Конвертированные файлы", ""])
         
@@ -335,45 +338,4 @@ class CodeToCodeConverter:
             'total_files': len(files)
         }
     
-    def _create_project_tree(self, files: List[Path]) -> List[str]:
-        """Создает текстовое представление дерева проекта"""
-        tree_structure = {}
-        
-        for file_path in files:
-            # Используем только относительные пути, исключая корневую папку
-            if len(file_path.parts) > 1:
-                # Пропускаем первую часть (корневую папку)
-                relative_parts = file_path.parts[1:]  # Пропускаем C:\Projects\py2txt_tool
-            else:
-                relative_parts = file_path.parts
-            
-            current_level = tree_structure
-            
-            for part in relative_parts[:-1]:
-                if part not in current_level:
-                    current_level[part] = {}
-                current_level = current_level[part]
-            
-            current_level[relative_parts[-1]] = None
-        
-        def build_tree(structure, prefix="", is_last=True):
-            tree_lines = []
-            items = list(structure.items())
-            
-            for i, (name, substructure) in enumerate(items):
-                is_last_item = i == len(items) - 1
-                
-                connector = "└── " if is_last_item else "├── "
-                extension = "    " if is_last_item else "│   "
-                
-                if substructure is None:
-                    tree_lines.append(f"{prefix}{connector}{name}")
-                else:
-                    tree_lines.append(f"{prefix}{connector}📁 {name}/")
-                    tree_lines.extend(build_tree(
-                        substructure, prefix + extension, is_last_item
-                    ))
-            
-            return tree_lines
-        
-        return build_tree(tree_structure) or ["Пустой проект"]
+    

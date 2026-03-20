@@ -85,21 +85,7 @@ class HtmlToCodeConverter(BaseReverseConverter):
         
         return output_files
     
-    def _get_extension_for_language(self, language: str) -> str:
-        """
-        Возвращает расширение файла для языка программирования
-        """
-        extension_map = {
-            'python': '.py',
-            'javascript': '.js',
-            'typescript': '.ts',
-            'jsx': '.jsx',
-            'tsx': '.tsx',
-            'text': '.txt'
-        }
         
-        return extension_map.get(language.lower(), '.txt')
-    
     def parse_html_structure(self, content: str) -> Dict[str, str]:
         """
         Парсит HTML файл для извлечения структуры
@@ -152,9 +138,10 @@ class CodeHTMLParser(HTMLParser):
         self.in_code_block = False
     
     def handle_starttag(self, tag, attrs):
-        if tag == 'h3' and any('file-header' in attr.get('class', '') for attr in attrs if isinstance(attr, dict)):
+        attrs_dict = dict(attrs)  # Преобразуем список кортежей в словарь
+        if tag == 'h3' and 'file-header' in attrs_dict.get('class', ''):
             self.in_file_header = True
-        elif tag == 'pre' and any('code' in attr.get('class', '') for attr in attrs if isinstance(attr, dict)):
+        elif tag == 'pre' and 'code' in attrs_dict.get('class', ''):
             self.in_code_block = True
     
     def handle_endtag(self, tag):

@@ -131,7 +131,8 @@ class HtmlConverterService:
             output_path = output_folder / "combined_code.html"
         
         # Создаем дерево проекта
-        tree_content = self._create_project_tree(files, base_folder)
+        from utils.tree_utils import build_project_tree
+        tree_content = build_project_tree(files, base_folder)
         
         # Собираем контент всех файлов
         files_content = []
@@ -271,58 +272,7 @@ class HtmlConverterService:
         
         return html_content
     
-    def _create_project_tree(self, files: List[Path], base_folder: Path) -> str:
-        """
-        Создает текстовое представление дерева проекта
-        """
         
-        # Создаем структуру папок и файлов
-        tree_structure = {}
-        
-        for file_path in files:
-            try:
-                relative_path = file_path.relative_to(base_folder)
-            except ValueError:
-                relative_path = file_path
-            
-            parts = relative_path.parts
-            current_level = tree_structure
-            
-            for part in parts[:-1]:
-                if part not in current_level:
-                    current_level[part] = {}
-                current_level = current_level[part]
-            
-            current_level[parts[-1]] = None
-        
-        # Рекурсивно строим дерево
-        def build_tree(structure, prefix="", is_last=True):
-            tree_lines = []
-            items = list(structure.items())
-            
-            for i, (name, substructure) in enumerate(items):
-                is_last_item = i == len(items) - 1
-                
-                # Определяем символы
-                connector = "└── " if is_last_item else "├── "
-                extension = "    " if is_last_item else "│   "
-                
-                # Добавляем файл или папку
-                if substructure is None:
-                    # Это файл
-                    tree_lines.append(f"{prefix}{connector}{name}")
-                else:
-                    # Это папка
-                    tree_lines.append(f"{prefix}{connector}📁 {name}/")
-                    tree_lines.extend(build_tree(
-                        substructure, prefix + extension, is_last_item
-                    ))
-            
-            return tree_lines
-        
-        tree_lines = build_tree(tree_structure)
-        return "\n".join(tree_lines) if tree_lines else "Пустой проект"
-    
     def _escape_html(self, text: str) -> str:
         """
         Экранирует HTML символы

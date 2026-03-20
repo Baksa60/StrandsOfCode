@@ -56,14 +56,6 @@ class JsonToCodeConverter(BaseReverseConverter):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(clean_content)
 
-            output_files.append(file_path)
-
         return self.create_result(output_files, start_time)
 
-    def _get_extension_for_language(self, language: str) -> str:
-        extension_map = {
-            "python": ".py",
-            "javascript": ".js",
-            "typescript": ".ts",
-        }
-        return extension_map.get((language or "").lower(), ".txt")
+    

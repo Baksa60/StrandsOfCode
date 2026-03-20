@@ -72,27 +72,27 @@ class FileCollector:
 
         return False
 
-    def collect_python_project(self, folder: Path, extensions: List[str]) -> List[Path]:
+    def collect_project_files(self, folder: Path, extensions: List[str]) -> List[Path]:
         """
-        Собирает все Python файлы проекта,
+        Собирает все файлы проекта с указанными расширениями,
         игнорируя служебные каталоги.
         """
-
         return [
             p for p in self._iter_folder(folder, recursive=True)
             if self._should_include_file(p, extensions)
         ]
+
+    def collect_python_project(self, folder: Path, extensions: List[str]) -> List[Path]:
+        """
+        Устаревший метод. Используйте collect_project_files().
+        """
+        return self.collect_project_files(folder, extensions)
 
     def collect_js_project(self, folder: Path, extensions: List[str]) -> List[Path]:
         """
-        Собирает все JavaScript/TypeScript файлы проекта,
-        игнорируя служебные каталоги.
+        Устаревший метод. Используйте collect_project_files().
         """
-
-        return [
-            p for p in self._iter_folder(folder, recursive=True)
-            if self._should_include_file(p, extensions)
-        ]
+        return self.collect_project_files(folder, extensions)
 
     def match_ignore_patterns(self, path: Path) -> bool:
         """

@@ -84,21 +84,7 @@ class MarkdownToCodeConverter(BaseReverseConverter):
         
         return output_files
     
-    def _get_extension_for_language(self, language: str) -> str:
-        """
-        Возвращает расширение файла для языка программирования
-        """
-        extension_map = {
-            'python': '.py',
-            'javascript': '.js',
-            'typescript': '.ts',
-            'jsx': '.jsx',
-            'tsx': '.tsx',
-            'text': '.txt'
-        }
         
-        return extension_map.get(language.lower(), '.txt')
-    
     def parse_markdown_structure(self, content: str) -> Dict[str, str]:
         """
         Парсит Markdown файл для извлечения структуры

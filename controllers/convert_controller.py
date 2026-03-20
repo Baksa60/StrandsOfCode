@@ -436,15 +436,7 @@ class ConvertController:
 
                     raise ValueError("Project markers not found (Python or JavaScript/TypeScript)")
 
-                
-
-                if self.collector.detect_python_project(folder):
-
-                    return self.collector.collect_python_project(folder, options.extensions)
-
-                else:
-
-                    return self.collector.collect_js_project(folder, options.extensions)
+                return self.collector.collect_project_files(folder, options.extensions)
 
             else:
 
