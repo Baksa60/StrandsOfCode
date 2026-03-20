@@ -50,8 +50,8 @@
 
 ### Качество кода
 - [x] Перенести все `import json`, `import subprocess`, `import platform`, `from pathlib import Path`, `from datetime import datetime` из тел методов `main_window.py` в начало файла.
-- [ ] Заменить `print(f"Ошибка...")` на `logging.warning(...)` / `logging.error(...)` во всех файлах. Добавить базовую конфигурацию логгера в `main.py`.
-- [ ] Унифицировать формат результата: `ConverterService` возвращает `ConversionResult`, остальные — `dict`. Контроллер уже нормализует это, но стоит зафиксировать стандарт в `models/conversion_result.py` и привести хотя бы ключи к единому виду.
+- [x] Заменить `print(f"Ошибка...")` на `logging.warning(...)` / `logging.error(...)` во всех файлах. Добавить базовую конфигурацию логгера в `main.py`.
+- [x] Унифицировать формат результата: `ConverterService` возвращает `ConversionResult`, остальные — `dict`. Контроллер уже нормализует это, но стоит зафиксировать стандарт в `models/conversion_result.py` и привести хотя бы ключи к единому виду.
 
 ### Чистка `main_window.py`
 - [x] Вынести `SettingsManager` — методы `load_settings()`, `save_settings()` — в `ui/settings_manager.py`.

@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 
@@ -13,7 +14,7 @@ class SettingsManager:
                 if isinstance(data, dict):
                     return data
         except Exception as e:
-            print(f"Ошибка загрузки настроек: {e}")
+            logging.warning(f"Ошибка загрузки настроек: {e}")
 
         return {}
 
@@ -22,4 +23,4 @@ class SettingsManager:
             with open(self.SETTINGS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(settings, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"Ошибка сохранения настроек: {e}")
+            logging.warning(f"Ошибка сохранения настроек: {e}")

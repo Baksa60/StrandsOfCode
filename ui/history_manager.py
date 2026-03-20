@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -24,10 +25,10 @@ class HistoryManager:
                                 item["timestamp"] = datetime.now()
                     self.history = data
         except json.JSONDecodeError as e:
-            print(f"Ошибка парсинга истории: {e}")
+            logging.warning(f"Ошибка парсинга истории: {e}")
             self.history = []
         except Exception as e:
-            print(f"Ошибка загрузки истории: {e}")
+            logging.warning(f"Ошибка загрузки истории: {e}")
             self.history = []
 
         return self.history
@@ -52,7 +53,7 @@ class HistoryManager:
                 json.dump(serializable_history, f, ensure_ascii=False, indent=2)
 
         except Exception as e:
-            print(f"Ошибка сохранения истории: {e}")
+            logging.warning(f"Ошибка сохранения истории: {e}")
 
     def add_entry(self, conversion_data: dict) -> None:
         history_item = {

@@ -706,6 +706,23 @@ class ConvertController:
 
         result.setdefault('errors', [])
 
+        # Добавляем total_size если отсутствует
+        if 'total_size' not in result:
+            total_size = 0
+            if 'output_files' in result:
+                try:
+                    from pathlib import Path
+                    total_size = sum(Path(f).stat().st_size for f in result['output_files'] if Path(f).exists())
+                except Exception:
+                    total_size = 0
+            elif 'output_path' in result:
+                try:
+                    from pathlib import Path
+                    total_size = Path(result['output_path']).stat().st_size
+                except Exception:
+                    total_size = 0
+            result['total_size'] = total_size
+
 
 
         return result
