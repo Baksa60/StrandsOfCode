@@ -2,6 +2,8 @@ import sys
 
 from pathlib import Path
 
+from datetime import datetime
+
 from PyQt6.QtWidgets import (
 
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -23,6 +25,7 @@ from controllers.convert_controller import ConvertController
 from models.conversion_options import ConversionOptions
 
 from ui.styles import apply_theme
+from ui.history_dialog import HistoryDialog
 
 from utils.cancellation import ConversionCancelled
 
@@ -51,61 +54,49 @@ class ConversionWorker(QThread):
     
 
     def run(self):
-
+        from datetime import datetime
+        
+        start_time = datetime.now()
+        
         try:
-
             result = self.controller.run(self.options)
-
+            
+            # Вычисляем время выполнения
+            end_time = datetime.now()
+            duration = end_time - start_time
+            
             # Добавляем информацию о папке в результат
-
             if isinstance(result, dict):
-
                 result['output_folder'] = self.options.output_folder
-
+                result['duration'] = duration
                 result['success'] = True
-
             else:
-
                 # Если результат не словарь, оборачиваем его
-
                 result = {
-
                     'data': result,
-
                     'output_folder': self.options.output_folder,
-
+                    'duration': duration,
                     'success': True
-
                 }
-
+            
             self.finished.emit(result)
-
+            
         except ConversionCancelled:
-
             cancelled_result = {
-
                 'cancelled': True,
-
                 'output_folder': self.options.output_folder,
-
-                'success': False
-
+                'success': False,
+                'duration': datetime.now() - start_time
             }
-
             self.finished.emit(cancelled_result)
 
         except Exception as e:
-
             error_result = {
-
                 'error': str(e),
-
                 'output_folder': self.options.output_folder,
-
-                'success': False
-
+                'success': False,
+                'duration': datetime.now() - start_time
             }
-
             self.finished.emit(error_result)
 
 
@@ -130,9 +121,12 @@ class MainWindow(QMainWindow):
 
         self.worker = None
 
+        self.conversion_history = []  # История конвертаций
+
         self.init_ui()
 
         self.load_settings()  # Загружаем сохраненные настройки
+        self.load_history()   # Загружаем историю конвертаций
 
         
 
@@ -2308,18 +2302,14 @@ class MainWindow(QMainWindow):
         
 
     def on_conversion_finished(self, result):
-
         """Обрабатывает завершение конвертации"""
-
         self.progress_bar.setVisible(False)
-
         self.convert_button.setEnabled(True)
-
         self.cancel_button.setVisible(False)
-
         self.cancel_button.setEnabled(False)
-
         
+        # Добавляем запись в историю
+        self._save_conversion_to_history(result)
 
         if result.get('success', True):
 
@@ -2421,7 +2411,150 @@ class MainWindow(QMainWindow):
 
             QMessageBox.critical(self, "Ошибка", f"Конвертация завершилась с ошибкой:\n{error_msg}")
 
+    def show_conversion_history(self):
+        """Показывает историю конвертаций"""
+        dialog = HistoryDialog(self)
+        # Передаем реальные данные истории
+        dialog.history_data = self.conversion_history
+        dialog.update_table()
+        dialog.update_statistics()
+        dialog.exec()
 
+    def add_conversion_to_history(self, conversion_data):
+        """Добавляет запись о конвертации в историю"""
+        history_item = {
+            "timestamp": datetime.now(),
+            "source": str(conversion_data.get("source_paths", [""])[0]),
+            "source_format": conversion_data.get("source_format", "Unknown"),
+            "output_format": conversion_data.get("output_format", "Unknown"),
+            "status": conversion_data.get("status", "unknown"),
+            "duration": conversion_data.get("duration", 0),
+            "size": conversion_data.get("total_size", 0),
+            "files_count": conversion_data.get("files_count", 0),
+            "error": conversion_data.get("error", "")
+        }
+        
+        self.conversion_history.append(history_item)
+        
+        # Ограничиваем историю до 100 записей
+        if len(self.conversion_history) > 100:
+            self.conversion_history = self.conversion_history[-100:]
+        
+        self.save_history()
+
+    def save_history(self):
+        """Сохраняет историю конвертаций в файл"""
+        import json
+        
+        history_file = Path.home() / ".strands_of_code_history.json"
+        
+        try:
+            # Конвертируем datetime объекты в строки для JSON
+            serializable_history = []
+            for item in self.conversion_history:
+                serializable_item = item.copy()
+                if isinstance(serializable_item["timestamp"], datetime):
+                    serializable_item["timestamp"] = serializable_item["timestamp"].isoformat()
+                # Конвертируем timedelta в секунды
+                if hasattr(serializable_item.get("duration"), 'total_seconds'):
+                    serializable_item["duration"] = serializable_item["duration"].total_seconds()
+                serializable_history.append(serializable_item)
+            
+            with open(history_file, 'w', encoding='utf-8') as f:
+                json.dump(serializable_history, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            print(f"Ошибка сохранения истории: {e}")
+
+    def load_history(self):
+        """Загружает историю конвертаций из файла"""
+        import json
+        
+        history_file = Path.home() / ".strands_of_code_history.json"
+        
+        try:
+            if history_file.exists():
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Конвертируем строки обратно в datetime объекты
+                for item in data:
+                    if isinstance(item.get("timestamp"), str):
+                        try:
+                            item["timestamp"] = datetime.fromisoformat(item["timestamp"])
+                        except:
+                            item["timestamp"] = datetime.now()
+                
+                self.conversion_history = data
+                
+        except json.JSONDecodeError as e:
+            print(f"Ошибка парсинга истории: {e}")
+            self.conversion_history = []
+        except Exception as e:
+            print(f"Ошибка загрузки истории: {e}")
+            self.conversion_history = []
+
+    def _save_conversion_to_history(self, result):
+        """Сохраняет результат конвертации в историю"""
+        # Определяем статус
+        if result.get('cancelled'):
+            status = 'cancelled'
+        elif result.get('success', True):
+            status = 'success'
+        else:
+            status = 'failed'
+        
+        # Собираем данные для истории
+        total_size = result.get('total_size', 0)
+        duration = result.get('duration')
+        
+        # Если total_size не задан, пробуем вычислить из выходных файлов
+        if total_size == 0:
+            if 'output_files' in result:
+                try:
+                    from pathlib import Path
+                    total_size = sum(Path(f).stat().st_size for f in result['output_files'] if Path(f).exists())
+                except:
+                    total_size = 0
+            elif 'combined_file' in result and 'output_path' in result['combined_file']:
+                try:
+                    from pathlib import Path
+                    total_size = Path(result['combined_file']['output_path']).stat().st_size
+                except:
+                    total_size = 0
+        
+        conversion_data = {
+            "source_paths": self.selected_paths,
+            "source_format": self._get_current_source_format(),
+            "output_format": self.output_format_combo.currentText(),
+            "status": status,
+            "duration": duration,  # Используем переменную duration
+            "total_size": total_size,
+            "files_count": result.get('total_files', 0),  # Используем total_files вместо files_count
+            "error": result.get('error', '')
+        }
+        
+        self.add_conversion_to_history(conversion_data)
+
+    def _get_current_source_format(self):
+        """Определяет текущий формат исходных файлов"""
+        format_text = self.source_format_combo.currentText()
+        if "Python" in format_text:
+            return "Python"
+        elif "JavaScript" in format_text:
+            return "JavaScript"
+        elif "TypeScript" in format_text:
+            return "TypeScript"
+        elif "Текст" in format_text:
+            return "TXT"
+        elif "Markdown" in format_text:
+            return "Markdown"
+        elif "HTML" in format_text:
+            return "HTML"
+        elif "JSON" in format_text:
+            return "JSON"
+        else:
+            return "Unknown"
 
 if __name__ == "__main__":
 
