@@ -329,12 +329,22 @@ class MainWindow(QMainWindow):
         self.cancel_button.setEnabled(False)
         self.cancel_button.setMinimumHeight(40)
 
-        left_layout.addWidget(self.convert_button)
-        left_layout.addWidget(self.cancel_button)
+        # Кнопка предпросмотра
+        self.preview_button = QPushButton("🔍 Показать файлы")
+        self.preview_button.clicked.connect(self.show_file_preview)
+        self.preview_button.setEnabled(False)
+        self.preview_button.setMinimumHeight(40)
+
+        # Layout для кнопок
+        buttons_layout = QVBoxLayout()
+        buttons_layout.addWidget(self.preview_button)
+        buttons_layout.addWidget(self.convert_button)
+        buttons_layout.addWidget(self.cancel_button)
+
+        left_layout.addLayout(buttons_layout)
         left_layout.addStretch()
 
         return left_panel
-
 
     def _build_right_panel(self) -> QWidget:
 
@@ -799,6 +809,9 @@ class MainWindow(QMainWindow):
         # Включаем кнопку конвертации
 
         self.convert_button.setEnabled(True)
+        
+        # Включаем кнопку предпросмотра
+        self.preview_button.setEnabled(True)
         
         
     
@@ -1266,6 +1279,9 @@ class MainWindow(QMainWindow):
                 self.selected_label.setText(file_path)
 
                 self.convert_button.setEnabled(True)
+                
+                # Включаем кнопку предпросмотра
+                self.preview_button.setEnabled(True)
 
                 self.update_statistics()
 
@@ -1289,6 +1305,9 @@ class MainWindow(QMainWindow):
                 self.selected_label.setText(f'Выбрано {len(file_paths)} файлов')
 
                 self.convert_button.setEnabled(True)
+                
+                # Включаем кнопку предпросмотра
+                self.preview_button.setEnabled(True)
 
                 self.update_statistics()
 
@@ -1308,6 +1327,9 @@ class MainWindow(QMainWindow):
                 self.selected_label.setText(folder_path)
 
                 self.convert_button.setEnabled(True)
+                
+                # Включаем кнопку предпросмотра
+                self.preview_button.setEnabled(True)
 
                 self.update_statistics()
 
@@ -1580,7 +1602,7 @@ class MainWindow(QMainWindow):
             output_mode=output_mode,
             output_format=output_format,
             output_folder=Path(output_folder),
-            extensions=self._get_source_extensions(source_format),
+            extensions=self._get_source_extensions(),
             add_headers=self.add_headers_checkbox.isChecked(),
             add_line_numbers=self.add_line_numbers_checkbox.isChecked(),
             filename=options_filename
@@ -1633,6 +1655,9 @@ class MainWindow(QMainWindow):
         self.convert_button.setEnabled(True)
         self.cancel_button.setVisible(False)
         self.cancel_button.setEnabled(False)
+        
+        # Включаем кнопку предпросмотра
+        self.preview_button.setEnabled(True)
         
         # Добавляем запись в историю
         self._save_conversion_to_history(result)
@@ -1740,6 +1765,104 @@ class MainWindow(QMainWindow):
             self.progress_bar.setValue(percentage)
             # Обновляем текст прогресс-бара
             self.progress_bar.setFormat(f"{current}/{total} ({percentage}%)")
+
+    def show_file_preview(self):
+        """Показывает диалог предпросмотра файлов"""
+        if not self.selected_paths:
+            return
+            
+        # Собираем файлы через контроллер
+        try:
+            files = self._collect_files_for_preview()
+            if not files:
+                self.log_message("⚠️ Нет файлов для предпросмотра")
+                return
+                
+            # Создаем и показываем диалог предпросмотра
+            from ui.file_preview_dialog import FilePreviewDialog
+            dialog = FilePreviewDialog(self, files)
+            dialog.exec()
+            
+        except Exception as e:
+            self.log_message(f"❌ Ошибка при предпросмотре файлов: {e}")
+
+    def _collect_files_for_preview(self):
+        """Собирает файлы для предпросмотра"""
+        # Создаем временные опции для сбора файлов
+        from models.conversion_options import ConversionOptions
+        from datetime import datetime
+        
+        # Определяем параметры сбора
+        source_type_text = self.source_type_combo.currentText()
+        if "Один файл" in source_type_text:
+            source_type = "file"
+        elif "Несколько файлов" in source_type_text:
+            source_type = "files"
+        elif "Папка (рекурсивно)" in source_type_text:
+            source_type = "folder_recursive"
+        else:  # "Папка"
+            source_type = "folder"
+            
+        extensions = self._get_source_extensions()
+        
+        # Создаем опции (без source_format)
+        options = ConversionOptions(
+            paths=self.selected_paths,
+            source_type=source_type,
+            output_folder=Path.home(),  # Неважно для предпросмотра
+            extensions=extensions,
+            output_mode="separate",
+            output_format="txt",  # Неважно для предпросмотра
+            filename="",
+            add_headers=False,
+            add_line_numbers=False
+        )
+        
+        # Собираем файлы через контроллер
+        return self.controller._collect_files(options)
+
+    def _get_source_extensions(self):
+        """Получает расширения файлов для выбранного формата"""
+        format_text = self.source_format_combo.currentText()
+        
+        if "Все поддерживаемые" in format_text:
+            return ['.py', '.js', '.ts', '.jsx', '.tsx', '.txt', '.md', '.html', '.json']
+        elif "Python" in format_text:
+            return ['.py']
+        elif "JavaScript" in format_text:
+            return ['.js']
+        elif "TypeScript" in format_text:
+            return ['.ts']
+        elif "Текст" in format_text:
+            return ['.txt']
+        elif "Markdown" in format_text:
+            return ['.md']
+        elif "HTML" in format_text:
+            return ['.html']
+        elif "JSON" in format_text:
+            return ['.json']
+        else:
+            return ['.py', '.js', '.ts', '.jsx', '.tsx', '.txt', '.md', '.html', '.json']
+
+    def _get_source_format_key(self):
+        """Получает ключ формата источника"""
+        format_text = self.source_format_combo.currentText()
+        if "Python" in format_text:
+            return "python"
+        elif "JavaScript" in format_text:
+            return "javascript"
+        elif "TypeScript" in format_text:
+            return "typescript"
+        elif "Текст" in format_text:
+            return "txt"
+        elif "Markdown" in format_text:
+            return "markdown"
+        elif "HTML" in format_text:
+            return "html"
+        elif "JSON" in format_text:
+            return "json"
+        else:
+            return "txt"  # По умолчанию
 
     def show_conversion_history(self):
         """Показывает историю конвертаций"""
