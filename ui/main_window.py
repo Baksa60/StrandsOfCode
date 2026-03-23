@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 
 from PyQt6.QtCore import Qt, QSize, QMimeData
 
-from PyQt6.QtGui import QIcon, QFont, QPalette, QDragEnterEvent, QDropEvent, QPainter, QColor
+from PyQt6.QtGui import QIcon, QFont, QPalette, QDragEnterEvent, QDropEvent, QPainter, QColor, QGuiApplication
 
 from controllers.convert_controller import ConvertController
 
@@ -75,11 +75,20 @@ class MainWindow(QMainWindow):
 
         
 
+    def closeEvent(self, event):
+        """Обработчик закрытия окна - сохраняем геометрию"""
+        self._save_window_geometry()
+        super().closeEvent(event)
+
+        
+
     def init_ui(self):
 
         self.setWindowTitle("🧬 StrandsOfCode - Конвертер кода")
-        self.setGeometry(100, 100, 900, 700)
         self.setMinimumSize(850, 750)
+        
+        # Загружаем сохраненную геометрию окна
+        self._load_window_geometry()
 
         # Применяем стили
         apply_theme(QApplication.instance(), "dark")
@@ -434,6 +443,9 @@ class MainWindow(QMainWindow):
 
     def save_settings(self):
         """Сохраняет настройки"""
+        # Сохраняем геометрию окна
+        self._save_window_geometry()
+        
         self.settings_manager.save({
             'last_save_folder': self.save_path_edit.text(),
             'last_source_type': self.source_type_combo.currentText(),
@@ -441,6 +453,51 @@ class MainWindow(QMainWindow):
             'last_output_format': self.output_format_combo.currentText(),
             'recent_files': [str(path) for path in self.recent_files]
         })
+
+    def _load_window_geometry(self):
+        """Загружает сохраненную геометрию окна"""
+        settings = self.settings_manager.load()
+        
+        geometry_data = settings.get('window_geometry')
+        if geometry_data:
+            try:
+                x = geometry_data.get('x', 100)
+                y = geometry_data.get('y', 100)
+                width = geometry_data.get('width', 900)
+                height = geometry_data.get('height', 700)
+                
+                # Убеждаемся что окно видимо на экране
+                screen = QGuiApplication.primaryScreen().availableGeometry()
+                
+                # Если окно за пределами экрана, перемещаем в центр
+                if x < screen.x() or y < screen.y() or \
+                   x + width > screen.x() + screen.width() or \
+                   y + height > screen.y() + screen.height():
+                    x = screen.x() + (screen.width() - width) // 2
+                    y = screen.y() + (screen.height() - height) // 2
+                
+                self.setGeometry(x, y, width, height)
+            except Exception:
+                # При ошибке используем значения по умолчанию
+                self.setGeometry(100, 100, 900, 700)
+        else:
+            # Первоначальный запуск
+            self.setGeometry(100, 100, 900, 700)
+
+    def _save_window_geometry(self):
+        """Сохраняет геометрию окна"""
+        geometry = self.geometry()
+        geometry_data = {
+            'x': geometry.x(),
+            'y': geometry.y(),
+            'width': geometry.width(),
+            'height': geometry.height()
+        }
+        
+        # Обновляем настройки с геометрией
+        settings = self.settings_manager.load()
+        settings['window_geometry'] = geometry_data
+        self.settings_manager.save(settings)
 
     def browse_save_location(self):
         """Открывает диалог выбора папки сохранения"""
