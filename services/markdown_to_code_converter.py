@@ -2,6 +2,7 @@
 Конвертер из Markdown формата обратно в код
 """
 
+import os
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from services.base_reverse_converter import BaseReverseConverter
@@ -65,12 +66,15 @@ class MarkdownToCodeConverter(BaseReverseConverter):
             extension = self._get_extension_for_language(language)
             
             # Восстанавливаем путь файла
-            if '/' in file_name:
+            # Нормализуем разделители путей для текущей ОС
+            normalized_name = file_name.replace('/', os.sep)
+            
+            if os.sep in normalized_name:
                 # Создаем подпапки если нужно
-                file_path = output_folder / file_name
+                file_path = output_folder / normalized_name
                 file_path.parent.mkdir(parents=True, exist_ok=True)
             else:
-                file_path = output_folder / file_name
+                file_path = output_folder / normalized_name
             
             # Убеждаем что расширение правильное
             if not file_path.suffix:

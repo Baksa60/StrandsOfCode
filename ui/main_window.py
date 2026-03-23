@@ -339,10 +339,22 @@ class MainWindow(QMainWindow):
         progress_group = QGroupBox("📊 Прогресс выполнения")
         progress_layout = QVBoxLayout()
 
+        # Основной прогресс-бар с процентами
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setMinimumHeight(25)
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
         progress_layout.addWidget(self.progress_bar)
+
+        # Тонкая полоска для indeterminate mode
+        self.progress_indeterminate = QProgressBar()
+        self.progress_indeterminate.setVisible(False)
+        self.progress_indeterminate.setMinimumHeight(3)
+        self.progress_indeterminate.setMaximumHeight(3)
+        self.progress_indeterminate.setRange(0, 0)  # Indeterminate
+        progress_layout.addWidget(self.progress_indeterminate)
+
         progress_group.setLayout(progress_layout)
 
         # Область логов
@@ -1530,11 +1542,17 @@ class MainWindow(QMainWindow):
         self.convert_button.setEnabled(False)
         self.cancel_button.setVisible(True)
         self.cancel_button.setEnabled(True)
+        
+        # Показываем оба прогресс-бара
         self.progress_bar.setVisible(True)
-        self.progress_bar.setRange(0, 0)  # Indeterminate progress
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        
+        self.progress_indeterminate.setVisible(True)
 
         self.worker = ConversionWorker(self.controller, options)
         self.worker.finished.connect(self.on_conversion_finished)
+        self.worker.progress_numeric.connect(self.on_progress_updated)
         self.worker.start()
 
 
@@ -1554,6 +1572,7 @@ class MainWindow(QMainWindow):
     def on_conversion_finished(self, result):
         """Обрабатывает завершение конвертации"""
         self.progress_bar.setVisible(False)
+        self.progress_indeterminate.setVisible(False)
         self.convert_button.setEnabled(True)
         self.cancel_button.setVisible(False)
         self.cancel_button.setEnabled(False)
@@ -1656,6 +1675,14 @@ class MainWindow(QMainWindow):
             self.log_action("Конвертация завершилась с ошибкой")
 
             QMessageBox.critical(self, "Ошибка", f"Конвертация завершилась с ошибкой:\n{error_msg}")
+
+    def on_progress_updated(self, current, total):
+        """Обновляет прогресс-бар с процентами"""
+        if total > 0:
+            percentage = int((current / total) * 100)
+            self.progress_bar.setValue(percentage)
+            # Обновляем текст прогресс-бара
+            self.progress_bar.setFormat(f"{current}/{total} ({percentage}%)")
 
     def show_conversion_history(self):
         """Показывает историю конвертаций"""

@@ -15,15 +15,20 @@ class ConverterService:
         output_folder: Path,
         add_headers: bool = True,
         add_line_numbers: bool = True,
+        progress_callback=None,
     ) -> ConversionResult:
 
         result = ConversionResult(files_found=len(files))
 
         output_folder.mkdir(parents=True, exist_ok=True)
 
-        for file in files:
+        for i, file in enumerate(files, 1):
 
             check_cancelled()
+
+            # Отправляем прогресс
+            if progress_callback:
+                progress_callback(i, len(files))
 
             try:
                 txt_path = output_folder / (file.stem + ".txt")
@@ -62,7 +67,8 @@ class ConverterService:
         output_file: Path,
         add_headers: bool = True,
         add_line_numbers: bool = True,
-        base_folder: Path | None = None
+        base_folder: Path | None = None,
+        progress_callback=None
     ) -> ConversionResult:
 
         result = ConversionResult(files_found=len(files))
@@ -80,9 +86,13 @@ class ConverterService:
                     tree = build_project_tree(files_sorted, base_folder)
                     out.write(tree)
 
-                for file in files_sorted:
+                for i, file in enumerate(files_sorted, 1):
 
                     check_cancelled()
+
+                    # Отправляем прогресс
+                    if progress_callback:
+                        progress_callback(i, len(files_sorted))
 
                     try:
 

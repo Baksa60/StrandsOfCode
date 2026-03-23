@@ -19,6 +19,7 @@ class JsonConverterService:
         create_tree: bool = False,
         base_folder: Optional[Path] = None,
         filename: Optional[str] = None,
+        progress_callback=None,
     ) -> dict:
         output_folder.mkdir(parents=True, exist_ok=True)
 
@@ -43,8 +44,13 @@ class JsonConverterService:
             results['duration'] = results['end_time'] - results['start_time']
             return results
 
-        for file_path in files:
+        for i, file_path in enumerate(files, 1):
             check_cancelled()
+            
+            # Отправляем прогресс
+            if progress_callback:
+                progress_callback(i, len(files))
+            
             try:
                 content, _ = read_file_safe(file_path)
                 payload = {

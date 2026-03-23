@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -47,7 +48,9 @@ class JsonToCodeConverter(BaseReverseConverter):
         for file_name, content in file_structure.items():
             clean_content = self.clean_code_content(content)
 
-            file_path = output_folder / file_name
+            # Нормализуем разделители путей для текущей ОС
+            normalized_name = file_name.replace('/', os.sep)
+            file_path = output_folder / normalized_name
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
             if not file_path.suffix and language:

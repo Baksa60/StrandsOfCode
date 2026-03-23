@@ -66,10 +66,10 @@ class ConvertController:
 
 
 
-    def run(self, options):
-
+    def run(self, options, progress_callback=None):
+        
         # Определяем тип конвертации по форматам
-
+        
         source_format = self._detect_source_format_from_options(options)
 
         
@@ -78,7 +78,7 @@ class ConvertController:
 
         if source_format in ["txt", "markdown", "html", "json"] and options.output_format in ["python", "javascript", "typescript"]:
 
-            result = self._run_text_to_code_conversion(options)
+            result = self._run_text_to_code_conversion(options, progress_callback)
 
             normalized = self._normalize_dict_result(result, options)
 
@@ -90,7 +90,7 @@ class ConvertController:
 
         elif source_format in ["python", "javascript", "typescript"] and options.output_format in ["python", "javascript", "typescript"]:
 
-            result = self._run_code_to_code_conversion(options)
+            result = self._run_code_to_code_conversion(options, progress_callback)
 
             normalized = self._normalize_dict_result(result, options)
 
@@ -102,7 +102,7 @@ class ConvertController:
 
         elif source_format in ["txt", "markdown", "html", "json"] and options.output_format in ["txt", "markdown", "html", "json"]:
 
-            result = self._run_text_to_text_conversion(options)
+            result = self._run_text_to_text_conversion(options, progress_callback)
 
             normalized = self._normalize_dict_result(result, options)
 
@@ -114,7 +114,7 @@ class ConvertController:
 
         else:
 
-            result = self._run_forward_conversion(options)
+            result = self._run_forward_conversion(options, progress_callback)
 
             normalized = self._normalize_dict_result(result, options)
 
@@ -330,7 +330,7 @@ class ConvertController:
 
     
 
-    def _run_text_to_code_conversion(self, options):
+    def _run_text_to_code_conversion(self, options, progress_callback=None):
 
         """Запускает конвертацию текста в код"""
 
@@ -338,7 +338,7 @@ class ConvertController:
 
     
 
-    def _run_code_to_code_conversion(self, options):
+    def _run_code_to_code_conversion(self, options, progress_callback=None):
 
         """Запускает конвертацию кода в код"""
 
@@ -366,13 +366,15 @@ class ConvertController:
 
             options.output_mode,
 
-            options.filename
+            options.filename,
+
+            progress_callback
 
         )
 
     
 
-    def _run_text_to_text_conversion(self, options):
+    def _run_text_to_text_conversion(self, options, progress_callback=None):
 
         """Запускает конвертацию текста в текст"""
 
@@ -400,7 +402,9 @@ class ConvertController:
 
             options.output_mode,
 
-            options.filename
+            options.filename,
+
+            progress_callback
 
         )
 
@@ -480,7 +484,7 @@ class ConvertController:
 
     
 
-    def _run_forward_conversion(self, options):
+    def _run_forward_conversion(self, options, progress_callback=None):
 
         """
 
@@ -532,6 +536,8 @@ class ConvertController:
 
                 filename=options.filename if create_tree else None,
 
+                progress_callback=progress_callback,
+
             )
 
 
@@ -555,6 +561,8 @@ class ConvertController:
                 base_folder=base_folder if create_tree else None,
 
                 filename=options.filename if create_tree else None,
+
+                progress_callback=progress_callback,
 
             )
 
@@ -580,6 +588,8 @@ class ConvertController:
 
                 filename=options.filename if create_tree else None,
 
+                progress_callback=progress_callback,
+
             )
 
 
@@ -597,6 +607,8 @@ class ConvertController:
                 options.add_headers,
 
                 options.add_line_numbers,
+
+                progress_callback,
 
             )
 
@@ -619,6 +631,8 @@ class ConvertController:
                 options.add_line_numbers,
 
                 base_folder=base_folder,
+
+                progress_callback=progress_callback,
 
             )
 

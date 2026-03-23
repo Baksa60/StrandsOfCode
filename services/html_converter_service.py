@@ -22,7 +22,7 @@ class HtmlConverterService:
     def convert_to_html(self, files: List[Path], output_folder: Path, 
                       add_headers: bool = True, add_line_numbers: bool = True,
                       create_tree: bool = True, base_folder: Optional[Path] = None,
-                      filename: Optional[str] = None) -> dict:
+                      filename: Optional[str] = None, progress_callback=None) -> dict:
         """
         Конвертирует файлы в HTML формат
         
@@ -65,8 +65,13 @@ class HtmlConverterService:
             return results
         
         # Конвертируем каждый файл отдельно
-        for file_path in files:
+        for i, file_path in enumerate(files, 1):
             check_cancelled()
+            
+            # Отправляем прогресс
+            if progress_callback:
+                progress_callback(i, len(files))
+            
             try:
                 result = self._convert_single_file(
                     file_path, output_folder, add_headers, add_line_numbers

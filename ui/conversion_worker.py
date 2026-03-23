@@ -7,7 +7,8 @@ from utils.cancellation import ConversionCancelled
 
 class ConversionWorker(QThread):
     finished = pyqtSignal(object)
-    progress = pyqtSignal(str)
+    progress = pyqtSignal(str)  # Текстовый прогресс
+    progress_numeric = pyqtSignal(int, int)  # Числовой прогресс (текущий, всего)
 
     def __init__(self, controller, options):
         super().__init__()
@@ -17,8 +18,12 @@ class ConversionWorker(QThread):
     def run(self):
         start_time = datetime.now()
 
+        # Создаем callback для прогресса
+        def progress_callback(current, total):
+            self.progress_numeric.emit(current, total)
+
         try:
-            result = self.controller.run(self.options)
+            result = self.controller.run(self.options, progress_callback)
 
             end_time = datetime.now()
             duration = end_time - start_time

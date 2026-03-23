@@ -27,7 +27,8 @@ class TextToTextConverter:
     
     def convert_text(self, files: List[Path], output_folder: Path, 
                     source_format: str, target_format: str,
-                    output_mode: str = "separate", filename: str = None) -> dict:
+                    output_mode: str = "separate", filename: str = None,
+                    progress_callback=None) -> dict:
         """
         Конвертирует файлы между текстовыми форматами
         
@@ -65,8 +66,13 @@ class TextToTextConverter:
             results['combined_file'] = combined_result
         else:
             # Конвертируем каждый файл отдельно
-            for file_path in files:
+            for i, file_path in enumerate(files, 1):
                 check_cancelled()
+                
+                # Отправляем прогресс
+                if progress_callback:
+                    progress_callback(i, len(files))
+                
                 try:
                     result = self._convert_single_file(
                         file_path, output_folder, source_format, target_format
